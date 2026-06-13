@@ -1,0 +1,23 @@
+{
+  "_comment": "Role Router CCR config. Engines are SWAPPABLE (see ADR-0001). /plan never uses this file — it runs in the Vanilla Context on Max. The anthropic/* entry below fires ONLY on Escalation and bills to the paid API. Copy to ~/.claude-code-router/config.json, set OPENROUTER_API_KEY, then `ccr restart`.",
+  "Providers": [
+    {
+      "name": "openrouter",
+      "api_base_url": "https://openrouter.ai/api/v1/chat/completions",
+      "api_key": "${OPENROUTER_API_KEY}",
+      "models": [
+        "moonshotai/kimi-k2.6",
+        "deepseek/deepseek-v4-flash",
+        "anthropic/claude-opus-4.8"
+      ],
+      "transformer": { "use": ["openrouter"] }
+    }
+  ],
+  "Router": {
+    "default": "openrouter,moonshotai/kimi-k2.6",
+    "background": "openrouter,deepseek/deepseek-v4-flash",
+    "think": "openrouter,moonshotai/kimi-k2.6",
+    "longContext": "openrouter,anthropic/claude-opus-4.8",
+    "longContextThreshold": 60000
+  }
+}
