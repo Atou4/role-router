@@ -1,0 +1,126 @@
+{
+  "_comment": "Domain-classified catalog of agent skills. Role Router does NOT vendor skill bodies — each entry points to its original source and an install command (no redistribution risk). Roles map to the router: architect=/plan, builder=/build, worker=/review+/docs, meta=cross-cutting. Verify name resolution on first install; for aggregator repos fall back to the repo-level install. Re-check sources/licenses before relying on them.",
+  "install_mechanism": {
+    "skills_cli": "npx skills add <owner/repo@skill> -g -y",
+    "plugin": "claude plugin marketplace add <owner/repo> && claude plugin install <plugin@marketplace>",
+    "note": "-g installs globally into ~/.claude/skills. Aggregator repos (mattpocock, alirezarezvani, openclaw) nest skills in category folders; if @skill 404s, run the repo-level install."
+  },
+  "domains": {
+    "mobile-react-native": {
+      "label": "Mobile · React Native / Expo",
+      "skills": [
+        { "name": "react-native-skills", "role": "builder", "source": "vercel-labs/agent-skills", "skill_id": "vercel-react-native-skills", "license": "MIT", "confidence": "high",
+          "install": "npx skills add vercel-labs/agent-skills@vercel-react-native-skills -g -y",
+          "description": "React Native & Expo performance/best-practice rules (lists, animations, native modules)." },
+        { "name": "In-App Purchases", "role": "builder", "source": "openclaw/skills", "skill_id": "in-app-purchases", "license": "MIT-0 (unconfirmed)", "confidence": "med",
+          "install": "npx skills add openclaw/skills@in-app-purchases -g -y",
+          "description": "IAP & subscriptions across iOS/Android/Flutter with RevenueCat, paywalls, receipt validation." }
+      ]
+    },
+    "mobile-flutter": {
+      "label": "Mobile · Flutter / Dart",
+      "skills": [
+        { "name": "flutter-coding-rules", "role": "builder", "source": "first-party (local)", "skill_id": null, "license": "unknown", "confidence": "low",
+          "install": "local: copy from ~/.claude/skills/flutter-coding-rules",
+          "description": "Dart/Flutter coding standards (clean architecture, widgets, state, minimal safe changes)." },
+        { "name": "flutter-performance", "role": "builder", "source": "first-party (local)", "skill_id": null, "license": "unknown", "confidence": "low",
+          "install": "local: copy from ~/.claude/skills/flutter-performance",
+          "description": "Rebuild & memory optimization (const, buildWhen, ListView.builder, RepaintBoundary, Isolate)." },
+        { "name": "flutter-security", "role": "builder", "source": "first-party (local)", "skill_id": null, "license": "unknown", "confidence": "low",
+          "install": "local: copy from ~/.claude/skills/flutter-security",
+          "description": "OWASP Mobile security for Flutter (secure storage, pinning, obfuscation, jailbreak, PII)." },
+        { "name": "flutter-cicd", "role": "worker", "source": "first-party (local)", "skill_id": null, "license": "unknown", "confidence": "low",
+          "install": "local: copy from ~/.claude/skills/flutter-cicd",
+          "description": "CI/CD standards for Flutter (pipelines, fastlane, automated test/build/deploy)." }
+      ]
+    },
+    "web-ui-ux": {
+      "label": "Web · UI / UX Design",
+      "skills": [
+        { "name": "ui-ux-pro-max", "role": "builder", "source": "nextlevelbuilder/ui-ux-pro-max-skill", "skill_id": "ui-ux-pro-max", "license": "MIT", "confidence": "high",
+          "install": "claude plugin marketplace add nextlevelbuilder/ui-ux-pro-max-skill && claude plugin install ui-ux-pro-max@ui-ux-pro-max-skill",
+          "install_alt": "npx skills add nextlevelbuilder/ui-ux-pro-max-skill@ui-ux-pro-max -g -y",
+          "description": "UI/UX design intelligence: 50+ styles, palettes, font pairings, UX guidelines across 10 stacks." }
+      ]
+    },
+    "backend-data": {
+      "label": "Backend · Data / Postgres",
+      "skills": [
+        { "name": "supabase", "role": "builder", "source": "supabase/agent-skills", "skill_id": "supabase", "license": "Apache-2.0", "confidence": "high",
+          "install": "npx skills add supabase/agent-skills@supabase -g -y",
+          "description": "Supabase across Database/Auth/Edge Functions/Realtime/Storage; client + SSR integrations; RLS." },
+        { "name": "supabase-postgres-best-practices", "role": "builder", "source": "supabase/agent-skills", "skill_id": "supabase-postgres-best-practices", "license": "Apache-2.0", "confidence": "high",
+          "install": "npx skills add supabase/agent-skills@supabase-postgres-best-practices -g -y",
+          "description": "Postgres performance & best practices: indexing, RLS performance, pooling, query tuning." },
+        { "name": "senior-backend", "role": "builder", "source": "alirezarezvani/claude-skills", "skill_id": "engineering-team/senior-backend", "license": "see repo", "confidence": "high",
+          "install": "npx skills add alirezarezvani/claude-skills@senior-backend -g -y",
+          "description": "Senior backend engineering practices (API design, services, reliability)." }
+      ]
+    },
+    "planning-architecture": {
+      "label": "Planning · Architecture / Design",
+      "skills": [
+        { "name": "grill-with-docs", "role": "architect", "source": "mattpocock/skills", "skill_id": "grill-with-docs", "license": "MIT", "confidence": "high",
+          "install": "npx skills add mattpocock/skills@grill-with-docs -g -y",
+          "description": "Grill a plan against the domain model; sharpen terms; update CONTEXT.md + ADRs inline." },
+        { "name": "grill-me", "role": "architect", "source": "mattpocock/skills", "skill_id": "grill-me", "license": "MIT", "confidence": "high",
+          "install": "npx skills add mattpocock/skills@grill-me -g -y",
+          "description": "Relentless interview of a plan/design until shared understanding across the decision tree." },
+        { "name": "improve-codebase-architecture", "role": "architect", "source": "mattpocock/skills", "skill_id": "improve-codebase-architecture", "license": "MIT", "confidence": "high",
+          "install": "npx skills add mattpocock/skills@improve-codebase-architecture -g -y",
+          "description": "Find deepening/refactor opportunities informed by CONTEXT.md language and ADR decisions." },
+        { "name": "prototype", "role": "architect", "source": "mattpocock/skills", "skill_id": "prototype", "license": "MIT", "confidence": "high",
+          "install": "npx skills add mattpocock/skills@prototype -g -y",
+          "description": "Throwaway prototype to flesh out a design (runnable logic app or UI variations)." },
+        { "name": "to-prd", "role": "architect", "source": "mattpocock/skills", "skill_id": "to-prd", "license": "MIT", "confidence": "high",
+          "install": "npx skills add mattpocock/skills@to-prd -g -y",
+          "description": "Turn conversation context into a PRD and publish it to the issue tracker." },
+        { "name": "zoom-out", "role": "architect", "source": "mattpocock/skills", "skill_id": "zoom-out", "license": "MIT", "confidence": "high",
+          "install": "npx skills add mattpocock/skills@zoom-out -g -y",
+          "description": "Step back for broader context / higher-level perspective." }
+      ]
+    },
+    "delivery-workflow": {
+      "label": "Delivery · Workflow / Issue tracking",
+      "skills": [
+        { "name": "to-issues", "role": "worker", "source": "mattpocock/skills", "skill_id": "to-issues", "license": "MIT", "confidence": "high",
+          "install": "npx skills add mattpocock/skills@to-issues -g -y",
+          "description": "Break a plan/PRD into independently-grabbable tracer-bullet issues on the tracker." },
+        { "name": "triage", "role": "worker", "source": "mattpocock/skills", "skill_id": "triage", "license": "MIT", "confidence": "high",
+          "install": "npx skills add mattpocock/skills@triage -g -y",
+          "description": "Triage issues through a role-driven state machine (labels, AFK-agent prep)." },
+        { "name": "handoff", "role": "worker", "source": "mattpocock/skills", "skill_id": "handoff", "license": "MIT", "confidence": "high",
+          "install": "npx skills add mattpocock/skills@handoff -g -y",
+          "description": "Compact the current conversation into a handoff doc for another agent." },
+        { "name": "setup-matt-pocock-skills", "role": "worker", "source": "mattpocock/skills", "skill_id": "setup-matt-pocock-skills", "license": "MIT", "confidence": "high",
+          "install": "npx skills add mattpocock/skills@setup-matt-pocock-skills -g -y",
+          "description": "Scaffold per-repo config (issue tracker, triage labels, CONTEXT/docs) the eng skills assume." }
+      ]
+    },
+    "quality-testing": {
+      "label": "Quality · Testing / Debugging",
+      "skills": [
+        { "name": "tdd", "role": "builder", "source": "mattpocock/skills", "skill_id": "tdd", "license": "MIT", "confidence": "high",
+          "install": "npx skills add mattpocock/skills@tdd -g -y",
+          "description": "Red-green-refactor TDD loop; integration-test-first development." },
+        { "name": "diagnose", "role": "builder", "source": "mattpocock/skills", "skill_id": "diagnose", "license": "MIT", "confidence": "high",
+          "install": "npx skills add mattpocock/skills@diagnose -g -y",
+          "description": "Disciplined bug/perf diagnosis: reproduce, minimise, hypothesise, instrument, regression-test." }
+      ]
+    },
+    "meta-skill-tooling": {
+      "label": "Meta · Skill tooling / Output control",
+      "skills": [
+        { "name": "write-a-skill", "role": "meta", "source": "mattpocock/skills", "skill_id": "write-a-skill", "license": "MIT", "confidence": "high",
+          "install": "npx skills add mattpocock/skills@write-a-skill -g -y",
+          "description": "Author new agent skills with proper structure and progressive disclosure." },
+        { "name": "find-skills", "role": "meta", "source": "openclaw/skills", "skill_id": "find-skills", "license": "MIT (unconfirmed)", "confidence": "med",
+          "install": "npx skills add openclaw/skills@find-skills -g -y",
+          "description": "Discover/install skills from the skills.sh registry by need." },
+        { "name": "caveman", "role": "meta", "source": "mattpocock/skills", "skill_id": "caveman", "license": "MIT", "confidence": "high",
+          "install": "npx skills add mattpocock/skills@caveman -g -y",
+          "description": "Ultra-compressed output mode (~75% fewer tokens) — pairs well with cheap Worker Engines." }
+      ]
+    }
+  }
+}

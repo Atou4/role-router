@@ -64,6 +64,19 @@ Engines are config, not architecture. Edit `~/.claude-code-router/config.json` `
 
 Re-check live model IDs/prices on OpenRouter before committing — slugs and prices shift.
 
+## Skill catalog
+
+[`catalog/`](catalog/) classifies 25 recommended agent skills **by domain** (mobile RN, Flutter, web/UI-UX, backend/data, planning, delivery, quality, meta) and maps each to a Role. We don't vendor skill bodies — each points to its **original source** + install command (no redistribution-license risk; skills stay current with upstream). Browse [`catalog/README.md`](catalog/README.md); machine-readable [`catalog/skills.json`](catalog/skills.json).
+
+```bash
+./install-skills.sh                 # list domains
+./install-skills.sh mobile-flutter  # install one domain from source
+./install-skills.sh role:architect  # install all Architect-role skills
+./install-skills.sh all             # everything with a remote source
+```
+
+Most are MIT (Matt Pocock's `mattpocock/skills`, Vercel's RN pack, Supabase's, ui-ux-pro-max). The `flutter-*` pack had no public source — it's marked first-party/local.
+
 ## Customising per repo
 
 `skills-manifest.json` maps each Role to recommended skills. Load only your stack's subset (e.g. `react-native-skills` for RN, `flutter-*` for Flutter). Builder/Worker skills are deliberately checklist-style so a weaker Engine can follow them; heavy reasoning skills (`grill-with-docs`, `improve-codebase-architecture`) stay on the Architect.
