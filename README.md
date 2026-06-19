@@ -69,6 +69,18 @@ This is the [`nested-subagent`](https://github.com/gruckion/nested-subagent) mec
 
 > Use `/next` for **dependent** work (build in order, one PR at a time) and `/fan-out` for **independent** work (a whole wave at once).
 
+### How the loop knows what's next
+
+Each task carries two scheduler fields — a **status** and a **`depends:`** list:
+
+```markdown
+## TASK-003 — Add phone verification
+- status: planned        # planned→building→review→{passed|gaps_found|human_needed}→done
+- depends: TASK-001, TASK-002
+```
+
+`/review` doesn't just print prose — it writes a **status** (`passed` / `gaps_found` / `human_needed`), and `/next` *routes* on it: re-build the `gaps_found`, stop on `human_needed`, otherwise build the next task whose `depends:` are all `done`. `/fan-out` builds every dependency-free task at once. The portable driver is `scripts/board.mjs` (PLAN.md); `.agent-board/` repos use their own board tool. Full contract: [`docs/task-spec.md`](docs/task-spec.md).
+
 ## The Hint Hook
 
 A free, local `UserPromptSubmit` hook (`hooks/route-hint.mjs`) keyword-classifies your prompt and *suggests* a Role command (e.g. "this looks like Builder work — consider /build"). Suggestion only — it never switches Engines, never blocks, and costs zero model tokens.
@@ -105,4 +117,5 @@ Most are MIT (Matt Pocock's `mattpocock/skills`, Vercel's RN pack, Supabase's, u
 
 - [`CONTEXT.md`](CONTEXT.md) — the shared vocabulary (Role, Engine, Vanilla/CCR Context, Handoff Artifact, Escalation, Fan-out).
 - [`docs/adr/`](docs/adr/) — the three load-bearing decisions and why.
+- [`docs/task-spec.md`](docs/task-spec.md) — the task format + status contract (`planned`→…→`done`) and `depends:` that `/next` and `/fan-out` schedule on.
 - [`docs/comparison-gsd.md`](docs/comparison-gsd.md) — how Role Router stacks up against [GSD Core](https://github.com/open-gsd/gsd-core), and the prioritized list of things to steal from it.

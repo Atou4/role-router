@@ -65,9 +65,9 @@ ok "Wrote $CCR_CONFIG (Builder=kimi-k2.6, Worker=deepseek-v4-flash)."
 mkdir -p "$CLAUDE_DIR/commands" "$CLAUDE_DIR/hooks" "$CLAUDE_DIR/role-router"
 cp "$SRC/commands/"*.md "$CLAUDE_DIR/commands/"
 cp "$SRC/hooks/route-hint.mjs" "$CLAUDE_DIR/hooks/"
-cp "$SRC/scripts/fan-out.mjs" "$CLAUDE_DIR/role-router/"
-chmod +x "$CLAUDE_DIR/hooks/route-hint.mjs" "$CLAUDE_DIR/role-router/fan-out.mjs"
-ok "Installed /plan /build /review /docs /next /fan-out, the Hint Hook, and the fan-out spawner into $CLAUDE_DIR."
+cp "$SRC/scripts/fan-out.mjs" "$SRC/scripts/board.mjs" "$CLAUDE_DIR/role-router/"
+chmod +x "$CLAUDE_DIR/hooks/route-hint.mjs" "$CLAUDE_DIR/role-router/fan-out.mjs" "$CLAUDE_DIR/role-router/board.mjs"
+ok "Installed /plan /build /review /docs /next /fan-out, the Hint Hook, and the fan-out + board drivers into $CLAUDE_DIR."
 
 # ── 5b. Parallel fan-out note (nested subagents) ────────────────────────────
 echo

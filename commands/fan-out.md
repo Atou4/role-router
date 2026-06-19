@@ -17,7 +17,7 @@ Use this instead of `/next` when you have **several tasks with no dependencies o
 
 ## 1. Pick the wave
 - If the user passed ids, use exactly those (after the independence check above).
-- Otherwise, gather a wave of **independent** planned tasks: read the board / `PLAN.md`, take the buildable+planned tasks whose `depends:` are all `Done`, and drop any that share files. Report the wave you chose before launching.
+- Otherwise compute the buildable wave: `node ~/.claude/role-router/board.mjs wave` (or the repo's board tool) returns every `planned` task whose `depends:` are all `done`. The driver guarantees dependency-independence; **you** still drop any two that touch the same files (it can't see file overlap). Report the wave you chose, and anything you dropped + why, before launching.
 
 ## 2. Launch
 Run the spawner with a sensible concurrency cap (default 3; raise only if the machine and your OpenRouter rate limits allow):

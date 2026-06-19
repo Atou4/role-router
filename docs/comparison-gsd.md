@@ -25,9 +25,9 @@ GSD is a **product** (≈33 agents, ≈70 commands, npm + plugin + 10-runtime in
 
 ## Things to steal from GSD (prioritized)
 
-1. **Status-driven router contract.** *(highest leverage, cheap)* Make `/review`/verify emit a normalized status — `passed` / `gaps_found` / `human_needed` — into the task's board frontmatter, and have `/next` branch on it instead of on prose. Mirrors GSD's `STATE.md.next_action` + `VERIFICATION.md` routing. Turns the loop from "read the report and decide" into a deterministic state machine.
-2. **Dependency-wave execution.** Add an explicit `depends:` field to every task spec. `/fan-out` already runs an independent wave in parallel; `depends:` lets `/next` *compute* the next wave automatically (build all dep-free tasks, wait, repeat) instead of one task at a time. This is GSD's biggest functional edge.
-3. **Requirement-coverage verification, not just diff review.** Have the Worker check every acceptance criterion / REQ-ID and every `CONTEXT.md` decision was actually implemented — not only "tests pass." GSD's `gsd-verifier` is its quality backbone.
+1. ✅ **Status-driven router contract.** *(shipped)* `/review` emits a normalized status — `passed` / `gaps_found` / `human_needed` — into the task spec, and `/next` branches on it instead of on prose. Mirrors GSD's `STATE.md.next_action` + `VERIFICATION.md` routing. See [`task-spec.md`](task-spec.md).
+2. ✅ **Dependency-wave execution.** *(shipped)* Every task spec carries `depends:`; `scripts/board.mjs` computes the buildable **wave** (`board.mjs wave`) and the next buildable task (`board.mjs next`). `/fan-out` builds the whole wave in parallel; `/next` takes them one at a time. *Still open:* a fully-automatic wave-by-wave driver that loops `fan-out` → wait → recompute until the graph drains (today the user re-invokes per wave).
+3. ⏳ **Requirement-coverage verification, not just diff review.** *(partly shipped)* `/review` now walks every Acceptance Criterion / REQ-ID and treats an uncovered one as a Must-fix (`gaps_found`). Not yet covered: verifying that every documented **decision** (CONTEXT.md / ADR) was implemented, the way GSD's `gsd-verifier` does.
 4. **Multi-model adversarial plan review before any build.** Route 2–3 of the *cheapest* Engines as blind plan reviewers and converge the spec until zero HIGH-severity concerns (GSD's `plan-review-convergence`, ≤3 cycles, stall-detect). Cheap insurance against a bad spec sending an expensive Builder down the wrong path.
 5. **Context-headroom hooks.** A long `/next` (or Architect) session can silently compact and drop board state. GSD hooks `PreCompact`/`Stop`/`SubagentStop` to warn first. Add a `PreCompact` hook that flushes loop state to disk.
 6. **Lightweight escape hatches.** GSD ships `/gsd-quick`, `/gsd-fast`, `/gsd-spike` for sub-phase work and concedes the full loop is overkill for small tasks. Add a `/quick` that skips plan→build→review ceremony for a one-file change.
@@ -43,6 +43,6 @@ GSD is a **product** (≈33 agents, ≈70 commands, npm + plugin + 10-runtime in
 
 ## Suggested roadmap order
 
-`/fan-out` (done) → `depends:` in specs → wave-aware `/next` → status-driven verify contract → adversarial plan review → context-headroom hook → `/quick` escape hatch. Each is independently shippable; the first three together close GSD's parallelism gap while keeping the 3-role model intact.
+Done: `/fan-out` → `depends:` in specs → wave/next driver (`board.mjs`) → status-driven verify contract. **Next:** auto wave-by-wave driver (loop fan-out until the graph drains) → decision-coverage in verify → adversarial plan review → context-headroom hook → `/quick` escape hatch. Each is independently shippable; the shipped four already close GSD's parallelism gap while keeping the 3-role model intact.
 
 [CC #32796]: https://github.com/anthropics/claude-code/issues/32796
