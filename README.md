@@ -35,7 +35,7 @@ export OPENROUTER_API_KEY="sk-or-..."   # https://openrouter.ai/keys
 ./install.sh
 ```
 
-The installer adds CCR, writes `~/.claude-code-router/config.json`, and copies the five commands (`/plan` `/build` `/review` `/docs` `/next`) + the Hint Hook into `~/.claude`. Then enable the hook (snippet printed by the installer) and run `ccr restart`.
+The installer adds CCR, writes `~/.claude-code-router/config.json`, and copies the six commands (`/plan` `/build` `/review` `/docs` `/next` `/fan-out`) + the Hint Hook + the fan-out spawner into `~/.claude`. Then enable the hook (snippet printed by the installer) and run `ccr restart`.
 
 ## Daily use
 
@@ -53,6 +53,21 @@ ccr code          # Routed — OpenRouter
 ```
 
 `/next` is one supervised loop iteration: it reconciles merged PRs, guards that the previous task's PR is settled, picks the next **planned** task (board planning-gate state, or the next `## TASK-XXX` in `PLAN.md`), then runs the pipeline. It refuses to build an un-planned task — that's the Architect's job, on Max.
+
+## Parallel Builders — `/fan-out`
+
+For a batch of **independent** planned tasks, skip the one-at-a-time loop and build them all at once:
+
+```bash
+ccr code
+  /fan-out TASK-001 TASK-002 TASK-003   # one fresh-context Builder per task, in parallel
+```
+
+Each task runs as its own headless `claude -p "/build …"` process — a **fresh 200k context window** with full tool access — in its **own git worktree** so parallel builds never clobber each other's branch. Every child is pointed at the CCR proxy, so all the parallel Builders bill to the **cheap Engine**, not Max.
+
+This is the [`nested-subagent`](https://github.com/gruckion/nested-subagent) mechanism (headless `claude -p` per task) adapted for cost: the upstream plugin spawns children on your Max quota; we route them through CCR instead. The installer mentions how to add that plugin too, if you want in-session nested subagents on Max. Engine of the fan-out is `scripts/fan-out.mjs` (`--concurrency`, `--base`, `--engine=ccr|vanilla`).
+
+> Use `/next` for **dependent** work (build in order, one PR at a time) and `/fan-out` for **independent** work (a whole wave at once).
 
 ## The Hint Hook
 
@@ -88,5 +103,6 @@ Most are MIT (Matt Pocock's `mattpocock/skills`, Vercel's RN pack, Supabase's, u
 
 ## Docs
 
-- [`CONTEXT.md`](CONTEXT.md) — the shared vocabulary (Role, Engine, Vanilla/CCR Context, Handoff Artifact, Escalation).
+- [`CONTEXT.md`](CONTEXT.md) — the shared vocabulary (Role, Engine, Vanilla/CCR Context, Handoff Artifact, Escalation, Fan-out).
 - [`docs/adr/`](docs/adr/) — the three load-bearing decisions and why.
+- [`docs/comparison-gsd.md`](docs/comparison-gsd.md) — how Role Router stacks up against [GSD Core](https://github.com/open-gsd/gsd-core), and the prioritized list of things to steal from it.

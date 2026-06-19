@@ -48,6 +48,18 @@ _Avoid_: Classifier, auto-router
 The rule that promotes a single Builder task to the Architect Engine (Claude) when it fails its quality gates (typecheck / Maestro) twice — capping the rework tax of a cheap Builder.
 _Avoid_: Retry, fallback
 
+**Fan-out**:
+Running many independent Builder tasks at once, each as a separate headless `claude -p` process with a fresh context window, each in its own git **Worktree**, all routed through CCR to the cheap Engine. The parallel counterpart to the sequential `/next` loop; only valid for tasks with no dependency between them.
+_Avoid_: Nested subagent (that's the upstream mechanism, not the Role-Router feature), Swarm
+
+**Wave**:
+A set of tasks whose dependencies are all already Done, so they can be fanned out together. `/next` builds one task; `/fan-out` builds a Wave.
+_Avoid_: Batch (acceptable loosely), Sprint
+
+**Worktree**:
+A separate git working directory (`git worktree`) checked out to a task's `task/<id>` branch, created per task during a Fan-out so concurrent Builders never collide on a shared checkout.
+_Avoid_: Clone, Sandbox
+
 ## Relationships
 
 - A **Role** is served by exactly one **Engine** at a time; an **Engine** can be swapped without changing the **Role** or the workflow.

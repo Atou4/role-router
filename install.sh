@@ -62,11 +62,21 @@ cp "$SRC/ccr/config.template.json" "$CCR_CONFIG"
 ok "Wrote $CCR_CONFIG (Builder=kimi-k2.6, Worker=deepseek-v4-flash)."
 
 # ── 5. Claude commands + hook ───────────────────────────────────────────────
-mkdir -p "$CLAUDE_DIR/commands" "$CLAUDE_DIR/hooks"
+mkdir -p "$CLAUDE_DIR/commands" "$CLAUDE_DIR/hooks" "$CLAUDE_DIR/role-router"
 cp "$SRC/commands/"*.md "$CLAUDE_DIR/commands/"
 cp "$SRC/hooks/route-hint.mjs" "$CLAUDE_DIR/hooks/"
-chmod +x "$CLAUDE_DIR/hooks/route-hint.mjs"
-ok "Installed /plan /build /review /docs /next and the Hint Hook into $CLAUDE_DIR."
+cp "$SRC/scripts/fan-out.mjs" "$CLAUDE_DIR/role-router/"
+chmod +x "$CLAUDE_DIR/hooks/route-hint.mjs" "$CLAUDE_DIR/role-router/fan-out.mjs"
+ok "Installed /plan /build /review /docs /next /fan-out, the Hint Hook, and the fan-out spawner into $CLAUDE_DIR."
+
+# ── 5b. Parallel fan-out note (nested subagents) ────────────────────────────
+echo
+bold "Parallel Builders (/fan-out)"
+echo "  /fan-out spawns one headless 'claude -p' per task — a fresh-context agent"
+echo "  per task — each in its own git worktree, all routed through CCR to the cheap"
+echo "  Engine. It needs CCR running (\`ccr start\`)."
+echo "  For in-SESSION nested subagents instead (children run on Max, not CCR), you"
+echo "  can add the upstream plugin:  /plugin marketplace add gruckion/nested-subagent"
 
 cat <<'NOTE'
 
@@ -85,6 +95,7 @@ Workflow:
   • Review: `ccr code`        → /review TASK-XXX     (Worker, DeepSeek)
   • Docs:   `ccr code`        → /docs TASK-XXX       (Worker, DeepSeek)
   • Loop:   `ccr code`        → /next                (auto-pick + build→review→docs)
+  • Fanout: `ccr code`        → /fan-out TASK-A TASK-B  (parallel Builders, fresh ctx each)
 
 Swap Engines anytime by editing ~/.claude-code-router/config.json (ADR-0001).
 NOTE
