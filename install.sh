@@ -66,7 +66,7 @@ mkdir -p "$CLAUDE_DIR/commands" "$CLAUDE_DIR/hooks"
 cp "$SRC/commands/"*.md "$CLAUDE_DIR/commands/"
 cp "$SRC/hooks/route-hint.mjs" "$CLAUDE_DIR/hooks/"
 chmod +x "$CLAUDE_DIR/hooks/route-hint.mjs"
-ok "Installed /plan /build /review /docs and the Hint Hook into $CLAUDE_DIR."
+ok "Installed /plan /build /review /docs /next and the Hint Hook into $CLAUDE_DIR."
 
 cat <<'NOTE'
 
@@ -84,6 +84,7 @@ Workflow:
   • Build:  `ccr code`        → /build TASK-XXX      (Builder, Kimi)
   • Review: `ccr code`        → /review TASK-XXX     (Worker, DeepSeek)
   • Docs:   `ccr code`        → /docs TASK-XXX       (Worker, DeepSeek)
+  • Loop:   `ccr code`        → /next                (auto-pick + build→review→docs)
 
 Swap Engines anytime by editing ~/.claude-code-router/config.json (ADR-0001).
 NOTE

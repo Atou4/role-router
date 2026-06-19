@@ -35,7 +35,7 @@ export OPENROUTER_API_KEY="sk-or-..."   # https://openrouter.ai/keys
 ./install.sh
 ```
 
-The installer adds CCR, writes `~/.claude-code-router/config.json`, and copies the four commands + the Hint Hook into `~/.claude`. Then enable the hook (snippet printed by the installer) and run `ccr restart`.
+The installer adds CCR, writes `~/.claude-code-router/config.json`, and copies the five commands (`/plan` `/build` `/review` `/docs` `/next`) + the Hint Hook into `~/.claude`. Then enable the hook (snippet printed by the installer) and run `ccr restart`.
 
 ## Daily use
 
@@ -47,7 +47,12 @@ ccr code          # Routed — OpenRouter
   /build TASK-001   # Kimi implements + runs gates; escalates to Claude on 2× gate fail
   /review TASK-001  # DeepSeek reviews the diff      (switch: /model openrouter,deepseek/deepseek-v4-flash)
   /docs TASK-001    # DeepSeek writes the PR body + updates the board
+
+  # …or chain all three and auto-pick the next planned task:
+  /next             # build → review → docs for the next task; stops at the PR (human gate)
 ```
+
+`/next` is one supervised loop iteration: it reconciles merged PRs, guards that the previous task's PR is settled, picks the next **planned** task (board planning-gate state, or the next `## TASK-XXX` in `PLAN.md`), then runs the pipeline. It refuses to build an un-planned task — that's the Architect's job, on Max.
 
 ## The Hint Hook
 
