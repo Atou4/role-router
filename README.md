@@ -4,7 +4,7 @@
 
 **Route engineering work to the cheapest *capable* model — by the role it needs, not the model you remember.**
 
-Spend your Claude Max quota only on high-leverage planning; let the 60–80% bulk of building and admin run **~7–128× cheaper** on OpenRouter models. Drops into any repo. Shareable with one install script.
+Spend planning time on a capable model (your Claude Max quota if you have it, or your strongest provider otherwise); let the 60–80% bulk of building and admin run **~7–128× cheaper** on other models. Drops into any repo. Shareable with one install script.
 
 [![Claude Code](https://img.shields.io/badge/runs%20on-Claude%20Code-d97757)](https://claude.com/claude-code)
 [![CCR](https://img.shields.io/badge/proxy-claude--code--router-555)](https://github.com/musistudio/claude-code-router)
@@ -53,7 +53,7 @@ Coding agents are cheap to run *wrong* and expensive to run *well*. Most setups 
 
 Role Router splits the work by the *kind of thinking it needs* and binds each kind to its own Engine:
 
-- **Planning** is rare, high-leverage, and worth your Claude Max quota.
+- **Planning** is rare, high-leverage — run it on your strongest model (Claude Max if you have it, otherwise your best provider).
 - **Building** is the bulk — run it on a cheap, capable coder.
 - **Admin** (review, docs, PR bodies) is the cheapest tier of all.
 
@@ -75,7 +75,7 @@ You keep one workflow; the models behind it are config you can swap in a month w
 |---|---|---|
 | **Node.js** ≥ 18 | runs the installer, `configure.mjs`, `board.mjs`, `fan-out.mjs` | <https://nodejs.org> |
 | **Claude Code** | the harness all commands run in | `npm i -g @anthropic-ai/claude-code` |
-| A **Claude Max** plan | so `/plan` (Architect) bills to quota, not the API | <https://claude.com/claude-code> |
+| A **Claude Max** plan *(optional)* | lets Architect run on quota; without it, Architect routes through your strongest provider | <https://claude.com/claude-code> |
 | At least **one** provider plan | Builder/Worker need a cheap Engine | see below |
 | **git** | the workflow is branch- and worktree-based | preinstalled on most systems |
 | **`gh`** (optional) | lets `/next` reconcile and open PRs | <https://cli.github.com> |
@@ -123,7 +123,7 @@ Finally, apply the CCR config and you're ready:
 ccr restart
 ```
 
-> ⚠️ **Money guardrail:** CCR authenticates with **API keys**, not your Max subscription. Anything launched via `ccr code` bills the paid API — so `/plan` is the *only* command you run in a plain `claude` session, and it stays on Max quota. The installer repeats this warning before it does anything. ([ADR-0002](docs/adr/0002-architect-on-max-vanilla-context.md))
+> ⚠️ **Money guardrail:** CCR authenticates with **API keys**, not your Max subscription. Anything launched via `ccr code` bills the paid API. If you have Max, `/plan` is the *only* command you run in a plain `claude` session (it stays on Max quota). If you don't have Max, the installer configures Architect to route through your strongest provider via CCR. The installer explains this before proceeding. ([ADR-0002](docs/adr/0002-architect-on-max-vanilla-context.md))
 
 ## Guide: ship your first feature
 

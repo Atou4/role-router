@@ -59,15 +59,32 @@ console.log(cyan(bold('┌─ Role Router Setup ──────────�
 console.log(cyan('│                                                      │'));
 console.log(cyan('│  Let\'s wire up the providers you have.                │'));
 console.log(cyan('│                                                      │'));
-console.log(cyan('│  ⚠️  IMPORTANT: Claude Code Max (Architect) always      │'));
-console.log(cyan('│     runs in vanilla context, never through CCR.        │'));
-console.log(cyan('│                                                      │'));
 console.log(cyan('└──────────────────────────────────────────────────────┘'));
+console.log();
+
+// Step 0: Claude Max subscription?
+console.log(bold('Do you have a Claude Code Max subscription?'));
+console.log(dim('(Max is recommended for Architect/planning, but not required)'));
+console.log();
+
+const hasMaxAnswer = await question('  Have Claude Code Max? (Y/n): '.trim() + ' ');
+const hasMax = !hasMaxAnswer.toLowerCase().startsWith('n');
+
+console.log();
+if (hasMax) {
+  console.log(dim('✓ Architect will run on Max (vanilla context)'));
+} else {
+  console.log(dim('⚠ Architect will route through CCR (your strongest model)'));
+}
 console.log();
 
 // Step 1: Select providers
 console.log(bold('Which plans/providers do you currently have?'));
-console.log(dim('☑ Claude Code Max    (Architect stays on vanilla — always selected)'));
+if (hasMax) {
+  console.log(dim('☑ Claude Code Max    (Architect stays on vanilla)'));
+} else {
+  console.log(dim('☐ Claude Code Max    (not available — Architect uses CCR)'));
+}
 console.log();
 
 const providerOptions = [
@@ -118,7 +135,7 @@ console.log();
 console.log(bold('┌─ Proposed configuration ───────────────────────────┐'));
 console.log();
 
-const proposedRouting = proposeRouting(selectedProviders, catalog);
+const proposedRouting = proposeRouting(selectedProviders, catalog, hasMax);
 
 console.log(dim('Based on what you have, here\'s a sane setup:'));
 console.log();
@@ -205,13 +222,54 @@ console.log();
 
 rl.close();
 
-function proposeRouting(providers, catalog) {
+function proposeRouting(providers, catalog, hasMax = true) {
   const routing = {
-    Architect: { model: 'Claude Opus (Max)', provider: 'Max (vanilla)' },
+    Architect: { model: null, provider: null },
     Builder: { model: null, provider: null },
     Worker: { model: null, provider: null },
     Escalation: { model: null, provider: null }
   };
+
+  // Architect routing
+  if (hasMax) {
+    routing.Architect = { model: 'Claude Opus (Max)', provider: 'Max (vanilla)' };
+  } else {
+    // No Max: route Architect through strongest available model
+    if (providers.includes('openai')) {
+      const o1 = catalog.providers.openai.models.find(m => m.id === 'o1');
+      if (o1) {
+        routing.Architect = { model: 'o1', provider: 'OpenAI (CCR)' };
+      } else {
+        // Fall back to o3-mini if o1 not available
+        routing.Architect = { model: 'o3-mini', provider: 'OpenAI (CCR)' };
+      }
+    }
+    else if (providers.includes('openrouter')) {
+      const claude = catalog.providers.openrouter.models.find(m => m.id === 'anthropic/claude-opus-4.8');
+      if (claude) {
+        routing.Architect = { model: 'claude-opus-4.8', provider: 'OpenRouter (CCR)' };
+      } else {
+        // Fall back to GLM-5.2
+        const glm = catalog.providers.openrouter.models.find(m => m.id === 'z-ai/glm-5.2');
+        if (glm) {
+          routing.Architect = { model: 'glm-5.2', provider: 'OpenRouter (CCR)' };
+        }
+      }
+    }
+    else if (providers.includes('zhipu')) {
+      routing.Architect = { model: 'glm-5.2', provider: 'Zhipu (CCR)' };
+    }
+    // If still no Architect model, set to first available model
+    if (!routing.Architect.model && providers.length > 0) {
+      const firstProvider = catalog.providers[providers[0]];
+      if (firstProvider && firstProvider.models.length > 0) {
+        routing.Architect = {
+          model: firstProvider.models[0].id,
+          provider: `${firstProvider.name} (CCR)`
+        };
+      }
+    }
+  }
 
   // Prefer OpenAI o3-mini for Builder if available
   if (providers.includes('openai')) {

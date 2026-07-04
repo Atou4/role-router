@@ -1,12 +1,16 @@
 ---
-description: ARCHITECT role — grill + decompose a feature into a concrete spec (the Handoff Artifact). Run in the VANILLA context (Claude on Max), never via CCR.
+description: ARCHITECT role — grill + decompose a feature into a concrete spec (the Handoff Artifact). Run in Vanilla context (Claude on Max) if available; otherwise run in CCR context with your configured Architect model.
 argument-hint: <feature or task description>
 allowed-tools: Bash, Read, Edit, Write, Glob, Grep, Skill
 ---
 
 # /plan — Architect
 
-> **Context check:** This command MUST run in a **Vanilla Context** (plain `claude`, on your Max subscription). If you are in a `ccr code` session, stop — planning here would bill the paid Anthropic API and waste Max quota (see ADR-0002). Exit and re-run with plain `claude`.
+> **Context check:** This command runs in one of two contexts:
+> - **Vanilla Context** (plain `claude`) if you have Claude Max — Architect stays on Max quota
+> - **CCR Context** (`ccr code`) if you don't have Max — Architect routes through your strongest configured model
+>
+> If you're in CCR but have Max available, exit and re-run with plain `claude` to preserve quota (ADR-0002). If you don't have Max, run wherever — the CLI configured your Architect model to route correctly.
 
 You are the **Architect**. Your job is to turn `$ARGUMENTS` into a spec a cheap Builder Engine can implement without further reasoning. You do **not** write feature code here.
 
