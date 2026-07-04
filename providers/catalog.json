@@ -1,0 +1,186 @@
+{
+  "version": "1.0.0",
+  "lastUpdated": "2025-01-04",
+  "providers": {
+    "openrouter": {
+      "name": "OpenRouter",
+      "api_base_url": "https://openrouter.ai/api/v1/chat/completions",
+      "api_key_env": "OPENROUTER_API_KEY",
+      "description": "Aggregates multiple providers (Anthropic, OpenAI, Zhipu, DeepSeek, Kimi, etc.)",
+      "models": [
+        {
+          "id": "moonshotai/kimi-k2.7-code",
+          "name": "Kimi K2.7 Code",
+          "role_hint": "strong_coder",
+          "context": 262144,
+          "pricing_per_m": { "prompt": 0.74, "completion": 3.5 }
+        },
+        {
+          "id": "moonshotai/kimi-k2.6",
+          "name": "Kimi K2.6",
+          "role_hint": "coder",
+          "context": 262144,
+          "pricing_per_m": { "prompt": 0.66, "completion": 3.41 }
+        },
+        {
+          "id": "deepseek/deepseek-v4-flash",
+          "name": "DeepSeek V4 Flash",
+          "role_hint": "cheap_worker",
+          "context": 1048576,
+          "pricing_per_m": { "prompt": 0.09, "completion": 0.18 }
+        },
+        {
+          "id": "deepseek/deepseek-v4-pro",
+          "name": "DeepSeek V4 Pro",
+          "role_hint": "worker",
+          "context": 1048576,
+          "pricing_per_m": { "prompt": 0.435, "completion": 0.87 }
+        },
+        {
+          "id": "z-ai/glm-5.2",
+          "name": "GLM 5.2",
+          "role_hint": "strong_coder",
+          "context": 1048576,
+          "pricing_per_m": { "prompt": 0.91, "completion": 2.86 }
+        },
+        {
+          "id": "z-ai/glm-5-turbo",
+          "name": "GLM 5 Turbo",
+          "role_hint": "coder",
+          "context": 262144,
+          "pricing_per_m": { "prompt": 1.2, "completion": 4.0 }
+        },
+        {
+          "id": "anthropic/claude-opus-4.8",
+          "name": "Claude Opus 4.8",
+          "role_hint": "reasoning",
+          "context": 1000000,
+          "pricing_per_m": { "prompt": 5.0, "completion": 25.0 }
+        },
+        {
+          "id": "anthropic/claude-sonnet-5",
+          "name": "Claude Sonnet 5",
+          "role_hint": "balanced",
+          "context": 1000000,
+          "pricing_per_m": { "prompt": 2.0, "completion": 10.0 }
+        },
+        {
+          "id": "openai/gpt-5.4",
+          "name": "GPT-5.4",
+          "role_hint": "balanced",
+          "context": 1050000,
+          "pricing_per_m": { "prompt": 2.5, "completion": 15.0 }
+        },
+        {
+          "id": "openai/gpt-5.4-mini",
+          "name": "GPT-5.4 Mini",
+          "role_hint": "coder",
+          "context": 400000,
+          "pricing_per_m": { "prompt": 0.75, "completion": 4.5 }
+        },
+        {
+          "id": "openai/gpt-5.4-nano",
+          "name": "GPT-5.4 Nano",
+          "role_hint": "cheap_worker",
+          "context": 400000,
+          "pricing_per_m": { "prompt": 0.2, "completion": 1.25 }
+        }
+      ]
+    },
+    "openai": {
+      "name": "OpenAI (direct)",
+      "api_base_url": "https://api.openai.com/v1/chat/completions",
+      "api_key_env": "OPENAI_API_KEY",
+      "description": "Direct OpenAI API access",
+      "models": [
+        {
+          "id": "o3-mini",
+          "name": "o3-mini",
+          "role_hint": "strong_coder",
+          "context": 200000,
+          "pricing_per_m": { "prompt": 1.10, "completion": 4.40 }
+        },
+        {
+          "id": "o1",
+          "name": "o1",
+          "role_hint": "reasoning",
+          "context": 200000,
+          "pricing_per_m": { "prompt": 15.0, "completion": 60.0 }
+        },
+        {
+          "id": "gpt-4.1",
+          "name": "GPT-4.1",
+          "role_hint": "balanced",
+          "context": 128000,
+          "pricing_per_m": { "prompt": 2.50, "completion": 10.0 }
+        },
+        {
+          "id": "gpt-4o-mini",
+          "name": "GPT-4o Mini",
+          "role_hint": "coder",
+          "context": 128000,
+          "pricing_per_m": { "prompt": 0.15, "completion": 0.60 }
+        }
+      ]
+    },
+    "zhipu": {
+      "name": "Zhipu AI (GLM direct)",
+      "api_base_url": "https://open.bigmodel.cn/api/paas/v4/chat/completions",
+      "api_key_env": "ZHIPU_API_KEY",
+      "description": "Direct Zhipu GLM API access",
+      "models": [
+        {
+          "id": "glm-5.2",
+          "name": "GLM-5.2",
+          "role_hint": "strong_coder",
+          "context": 1048576,
+          "pricing_per_m": { "prompt": 0.91, "completion": 2.86 }
+        },
+        {
+          "id": "glm-5-turbo",
+          "name": "GLM-5 Turbo",
+          "role_hint": "coder",
+          "context": 262144,
+          "pricing_per_m": { "prompt": 1.2, "completion": 4.0 }
+        },
+        {
+          "id": "glm-4-flash",
+          "name": "GLM-4 Flash",
+          "role_hint": "cheap_worker",
+          "context": 128000,
+          "pricing_per_m": { "prompt": 0.10, "completion": 0.50 }
+        }
+      ]
+    },
+    "anthropic": {
+      "name": "Anthropic (paid API)",
+      "api_base_url": "https://api.anthropic.com/v1/messages",
+      "api_key_env": "ANTHROPIC_API_KEY",
+      "description": "Paid Anthropic API (not Max) — only for escalation",
+      "models": [
+        {
+          "id": "claude-opus-4.8",
+          "name": "Claude Opus 4.8",
+          "role_hint": "reasoning",
+          "context": 200000,
+          "pricing_per_m": { "prompt": 15.0, "completion": 75.0 }
+        },
+        {
+          "id": "claude-sonnet-5",
+          "name": "Claude Sonnet 5",
+          "role_hint": "balanced",
+          "context": 200000,
+          "pricing_per_m": { "prompt": 3.0, "completion": 15.0 }
+        }
+      ]
+    }
+  },
+  "role_hints": {
+    "strong_coder": "Best for Builder role — strong coding capability, good value",
+    "coder": "Good for Builder role — capable coder",
+    "cheap_worker": "Best for Worker role — cheapest option for review/docs",
+    "worker": "Good for Worker role — review and documentation",
+    "balanced": "Balanced option — can serve either role",
+    "reasoning": "Best for escalation or long-context tasks"
+  }
+}

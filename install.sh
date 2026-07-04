@@ -1,9 +1,9 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-# Role Router installer — see CONTEXT.md and docs/adr/.
-# Installs CCR, writes the CCR config, and copies Role commands + the Hint Hook
-# into ~/.claude. Idempotent-ish: backs up an existing CCR config before writing.
+# Role Router installer — interactive setup
+# Guides you through selecting your providers, entering API keys, and generates
+# a tailored CCR config. Then copies commands + hooks + drivers into ~/.claude.
 
 SRC="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 CLAUDE_DIR="${CLAUDE_DIR:-$HOME/.claude}"
@@ -13,6 +13,7 @@ CCR_CONFIG="$CCR_DIR/config.json"
 bold() { printf '\033[1m%s\033[0m\n' "$1"; }
 warn() { printf '\033[33m%s\033[0m\n' "$1"; }
 ok()   { printf '\033[32m%s\033[0m\n' "$1"; }
+dim()  { printf '\033[2m%s\033[0m\n' "$1"; }
 
 bold "Role Router installer"
 echo
@@ -44,24 +45,21 @@ else
   ok "ccr already installed ($(ccr -v 2>/dev/null || echo present))."
 fi
 
-# ── 3. OpenRouter key ───────────────────────────────────────────────────────
-if [[ -z "${OPENROUTER_API_KEY:-}" ]]; then
-  warn "OPENROUTER_API_KEY is not set in your environment."
-  echo  "Add it to your shell profile (get a key at https://openrouter.ai/keys):"
-  echo  '   export OPENROUTER_API_KEY="sk-or-..."'
-  echo  "The CCR config references it as \${OPENROUTER_API_KEY}."
+# ── 3. Interactive configuration ────────────────────────────────────────────
+bold "Running interactive configuration…"
+echo
+
+node "$SRC/scripts/configure.mjs"
+
+# Check if config was written
+if [[ ! -f "$CCR_CONFIG" ]]; then
+  warn "Configuration was not written. Aborting install."
+  exit 1
 fi
 
-# ── 4. CCR config ───────────────────────────────────────────────────────────
-mkdir -p "$CCR_DIR"
-if [[ -f "$CCR_CONFIG" ]]; then
-  cp "$CCR_CONFIG" "$CCR_CONFIG.bak.$(date +%s)"
-  warn "Existing CCR config backed up."
-fi
-cp "$SRC/ccr/config.template.json" "$CCR_CONFIG"
-ok "Wrote $CCR_CONFIG (Builder=kimi-k2.6, Worker=deepseek-v4-flash)."
+ok "Configuration written to $CCR_CONFIG"
 
-# ── 5. Claude commands + hook ───────────────────────────────────────────────
+# ── 4. Claude commands + hook ───────────────────────────────────────────────
 mkdir -p "$CLAUDE_DIR/commands" "$CLAUDE_DIR/hooks" "$CLAUDE_DIR/role-router"
 cp "$SRC/commands/"*.md "$CLAUDE_DIR/commands/"
 cp "$SRC/hooks/route-hint.mjs" "$CLAUDE_DIR/hooks/"
@@ -69,34 +67,44 @@ cp "$SRC/scripts/fan-out.mjs" "$SRC/scripts/board.mjs" "$CLAUDE_DIR/role-router/
 chmod +x "$CLAUDE_DIR/hooks/route-hint.mjs" "$CLAUDE_DIR/role-router/fan-out.mjs" "$CLAUDE_DIR/role-router/board.mjs"
 ok "Installed /plan /build /review /docs /next /fan-out, the Hint Hook, and the fan-out + board drivers into $CLAUDE_DIR."
 
-# ── 5b. Parallel fan-out note (nested subagents) ────────────────────────────
+# ── 5. Hook enable snippet ────────────────────────────────────────────────
 echo
-bold "Parallel Builders (/fan-out)"
-echo "  /fan-out spawns one headless 'claude -p' per task — a fresh-context agent"
-echo "  per task — each in its own git worktree, all routed through CCR to the cheap"
-echo "  Engine. It needs CCR running (\`ccr start\`)."
-echo "  For in-SESSION nested subagents instead (children run on Max, not CCR), you"
-echo "  can add the upstream plugin:  /plugin marketplace add gruckion/nested-subagent"
+bold "Enable the Hint Hook"
+echo
+dim "Add this to ~/.claude/settings.json:"
+echo
+cat <<'EOF'
+"hooks": { "UserPromptSubmit": [ { "hooks": [
+  { "type": "command", "command": "node ~/.claude/hooks/route-hint.mjs" }
+] } ] }
+EOF
+echo
 
+# ── 6. Next steps ─────────────────────────────────────────────────────────
 cat <<'NOTE'
 
-Almost done. Two manual steps:
+┌─ Next steps ────────────────────────────────────┐
 
-  1. Enable the Hint Hook — add to ~/.claude/settings.json:
-       "hooks": { "UserPromptSubmit": [ { "hooks": [
-         { "type": "command", "command": "node ~/.claude/hooks/route-hint.mjs" }
-       ] } ] }
+  1. Add the API key exports to your shell profile
+     (printed by the configure script above).
 
-  2. Apply the CCR config:  ccr restart
+  2. Apply the CCR config:
+       ccr restart
+
+  3. Start using Role Router:
+       claude            # → /plan <feature>     (Max, vanilla)
+       ccr code          # → /build /review /docs (cheap Engines)
 
 Workflow:
   • Plan:   plain  `claude`   → /plan <feature>     (Architect, Max quota)
-  • Build:  `ccr code`        → /build TASK-XXX      (Builder, Kimi)
-  • Review: `ccr code`        → /review TASK-XXX     (Worker, DeepSeek)
-  • Docs:   `ccr code`        → /docs TASK-XXX       (Worker, DeepSeek)
-  • Loop:   `ccr code`        → /next                (auto-pick + build→review→docs)
-  • Fanout: `ccr code`        → /fan-out TASK-A TASK-B  (parallel Builders, fresh ctx each)
+  • Build:  `ccr code`        → /build TASK-XXX      (Builder)
+  • Review: `ccr code`        → /review TASK-XXX     (Worker)
+  • Docs:   `ccr code`        → /docs TASK-XXX       (Worker)
+  • Loop:   `ccr code`        → /next                (auto-pick)
+  • Fanout: `ccr code`        → /fan-out TASK-A …B  (parallel)
 
-Swap Engines anytime by editing ~/.claude-code-router/config.json (ADR-0001).
+See README.md for the full guide.
+└───────────────────────────────────────────────────
+
 NOTE
 ok "Role Router installed."

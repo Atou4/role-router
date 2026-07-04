@@ -73,12 +73,21 @@ You keep one workflow; the models behind it are config you can swap in a month w
 
 | Need | Why | Get it |
 |---|---|---|
-| **Node.js** ≥ 18 | runs the installer, `board.mjs`, `fan-out.mjs` | <https://nodejs.org> |
+| **Node.js** ≥ 18 | runs the installer, `configure.mjs`, `board.mjs`, `fan-out.mjs` | <https://nodejs.org> |
 | **Claude Code** | the harness all commands run in | `npm i -g @anthropic-ai/claude-code` |
 | A **Claude Max** plan | so `/plan` (Architect) bills to quota, not the API | <https://claude.com/claude-code> |
-| An **OpenRouter** key | the cheap Engines for Builder/Worker | <https://openrouter.ai/keys> |
+| At least **one** provider plan | Builder/Worker need a cheap Engine | see below |
 | **git** | the workflow is branch- and worktree-based | preinstalled on most systems |
 | **`gh`** (optional) | lets `/next` reconcile and open PRs | <https://cli.github.com> |
+
+**Provider options** (the installer will ask which you have):
+
+| Provider | Get it |
+|---|---|
+| OpenAI (Codex, o3-mini, etc.) | <https://platform.openai.com/api-keys> |
+| Zhipu AI (GLM) | <https://open.bigmodel.cn/dev/api#api_key> |
+| OpenRouter (aggregates many) | <https://openrouter.ai/keys> |
+| Anthropic API (paid, escalation only) | <https://console.anthropic.com/settings/keys> |
 
 ## Quickstart
 
@@ -86,24 +95,35 @@ You keep one workflow; the models behind it are config you can swap in a month w
 # 1. Clone
 git clone https://github.com/Atou4/role-router.git && cd role-router
 
-# 2. Add your OpenRouter key (put this in your shell profile to persist it)
-export OPENROUTER_API_KEY="sk-or-..."
-
-# 3. Install — adds CCR, writes its config, copies the commands + hook + drivers
+# 2. Run the interactive installer
 ./install.sh
+```
 
-# 4. Apply the CCR config
+The installer launches an **interactive CLI** that:
+
+1. ✅ Checks prerequisites (Node.js, Claude Code, CCR)
+2. 🔑 **Asks which providers you have** (OpenAI Codex, Zhipu GLM, OpenRouter, Anthropic API)
+3. 🔑 **Collects your API keys** for each provider
+4. ⚙️ **Proposes a routing** based on what you have (Builder → Codex/o3-mini, Worker → GLM-4-flash, etc.)
+5. 🎛️ **Lets you customize** which model serves each Role
+6. 📝 **Generates** `~/.claude-code-router/config.json` tailored to your setup
+7. 📦 **Installs** the six commands, Hint Hook, and drivers into `~/.claude`
+
+Then it prints the **shell exports** you need to add to your profile (`~/.zshrc` or `~/.bash_profile`):
+
+```bash
+export OPENAI_API_KEY="sk-..."        # if you selected OpenAI
+export ZHIPU_API_KEY="..."           # if you selected Zhipu
+export OPENROUTER_API_KEY="sk-or-..." # if you selected OpenRouter
+```
+
+Finally, apply the CCR config and you're ready:
+
+```bash
 ccr restart
 ```
 
-The installer:
-
-- installs **CCR** (`@musistudio/claude-code-router`) if missing,
-- writes `~/.claude-code-router/config.json` (Builder = Kimi, Worker = DeepSeek),
-- copies the **six commands** (`/plan` `/build` `/review` `/docs` `/next` `/fan-out`), the **Hint Hook**, and the `board.mjs` + `fan-out.mjs` drivers into `~/.claude`,
-- prints a one-line snippet to enable the Hint Hook in `~/.claude/settings.json`.
-
-> ⚠️ **Money guardrail:** CCR authenticates with **API keys**, not your Max subscription. Anything launched via `ccr code` bills the paid Anthropic API — so `/plan` is the *only* command you run in a plain `claude` session, and it stays on Max quota. The installer repeats this warning before it does anything. ([ADR-0002](docs/adr/0002-architect-on-max-vanilla-context.md))
+> ⚠️ **Money guardrail:** CCR authenticates with **API keys**, not your Max subscription. Anything launched via `ccr code` bills the paid API — so `/plan` is the *only* command you run in a plain `claude` session, and it stays on Max quota. The installer repeats this warning before it does anything. ([ADR-0002](docs/adr/0002-architect-on-max-vanilla-context.md))
 
 ## Guide: ship your first feature
 
@@ -243,14 +263,27 @@ A free, local `UserPromptSubmit` hook ([`hooks/route-hint.mjs`](hooks/route-hint
 
 ## Swapping Engines
 
-Engines are config, not architecture. Edit the `Router` block in `~/.claude-code-router/config.json`:
+Engines are config, not architecture. You have two options:
+
+**Option 1 — Re-run the interactive CLI:**
+
+```bash
+cd /path/to/role-router
+./install.sh    # or directly: node scripts/configure.mjs
+```
+
+This re-prompts you for providers and models, and regenerates the config.
+
+**Option 2 — Edit the config directly:**
+
+Edit the `Router` block in `~/.claude-code-router/config.json`:
 
 ```jsonc
-"default":    "openrouter,z-ai/glm-5",            // try GLM-5 as Builder
+"default":    "openrouter,z-ai/glm-5.2",           // try GLM-5.2 as Builder
 "background": "openrouter,deepseek/deepseek-v4-flash"
 ```
 
-Then `ccr restart`. Re-check live model IDs/prices on OpenRouter before committing — slugs and prices shift.
+Then `ccr restart`. The provider catalog (`providers/catalog.json`) lists current model IDs and pricing.
 
 ## Skill catalog
 
