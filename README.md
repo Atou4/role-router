@@ -199,7 +199,9 @@ One supervised iteration: reconcile merged PRs → `done`, guard that the previo
 | `role-router run worker <id>` | Worker | configured, normally OpenCode/Z.AI | Emit `passed` / `gaps_found` / `human_needed` |
 | `role-router run docs <id>` | Worker | configured | Write PR body, update board, open PR |
 | `role-router limits` | — | — | Show or edit paused accounts |
-| `/next` | Builder+Worker | launches each binding | One adapter-driven loop turn |
+| `role-router next [TASK] [--loop]` | Builder+Worker | each Role's chain | One deterministic build → review → docs turn, driven by code |
+| `role-router status` | — | — | Accounts, board, last run per task, pending handoffs |
+| `/next` | Builder+Worker | launches each binding | The same loop as a prompt; also reconciles merged PRs |
 | `/fan-out <ids…>` | Builder ×N | Builder binding | Parallel independent tasks in fresh contexts |
 
 **Board driver** (`scripts/board.mjs`):
@@ -283,7 +285,13 @@ role-router limits pause anthropic --until=17:30   # or +90m, +2h, an ISO date
 role-router limits clear anthropic
 ```
 
-Every headless run leaves `.role-router/runs/<task>/NNN-<profile>.json` (+ `.jsonl` events): agent, result, tokens/cost when the agent reports them. Design: [ADR-0006](docs/adr/0006-account-aware-fallback-chains.md), [dispatch.md](docs/design/dispatch.md).
+**Continuity.** Files and git carry the state, not the agent's session:
+
+- `handoff.md` is written when a run ends on a limit or a crash. It lists the task's acceptance criteria split into verified (ticked) and still open, gives `git` commands to re-read the live state instead of a stale snapshot, and tells the next agent to run the verification gates first.
+- When the *same* profile returns after its account resets, it resumes its own session (`claude --resume`, `codex exec resume`, `opencode --session`); if that fails it starts fresh from the handoff.
+- Every headless run leaves `.role-router/runs/<task>/NNN-<profile>.json` (+ `.jsonl` events): agent, result, tokens/cost when reported, and **evidence** the orchestrator observed itself (git commit, uncommitted files, diff stat).
+
+ Design: [ADR-0006](docs/adr/0006-account-aware-fallback-chains.md), [dispatch.md](docs/design/dispatch.md).
 
 ## Swapping Engines
 

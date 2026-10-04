@@ -6,6 +6,8 @@ allowed-tools: Bash, Read, Edit, Write, Glob, Grep, Skill
 
 # /next — adapter-driven loop
 
+> **Prefer the code path:** `role-router next [TASK]` runs this loop deterministically (pick → build → review → docs, status read from PLAN.md after each step). Use this prompt when you also want PR reconciliation (steps 1–2) done for you.
+>
 > **Engine check:** Each stage is a fresh `role-router run ... --headless` process. Builder and Worker may use different harnesses or providers. If `$ARGUMENTS` names an unplanned task, stop and send it back to the Architect.
 
 You are **one supervised iteration** of the build loop. The rule: never start a new task while the previous one's PR is still open and unmerged. Work the steps in order; **stop and report** the moment a gate or guard fails — do not thrash.

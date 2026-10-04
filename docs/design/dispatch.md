@@ -116,6 +116,8 @@ Arena runners were not available in this session, so the two candidates were dra
 - Success output of Codex and Claude Code is captured as fixtures; real *limit* output is not. Limit patterns come from public docs, so add fixtures under `test/fixtures/<agent>/` the first time each account hits a limit.
 - `scripts/configure.mjs` still writes a v1 config (upgraded on load); a v2 wizard is not built yet.
 - `fanout` worktree creation and resume was not exercised live, only `dispatch()` itself.
+- Native resume is verified live for Claude Code and Codex; OpenCode's `--session` is untested (no stored login available when written).
+- `role-router next` does not reconcile merged PRs or guard against open PRs; that remains in the `/next` prompt.
 
 ## Next implementation step
 
