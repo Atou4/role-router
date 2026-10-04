@@ -1,46 +1,37 @@
 {
-  "_comment": "Role -> recommended skills. Heavy reasoning skills go to the Architect (Claude follows them best). Builder/Worker skills are tight, checklist-style rule sets a weaker Engine can follow. Projects load only their stack subset (e.g. react-native-skills XOR flutter-*).",
-  "architect": {
-    "engine": "configured Architect Adapter (Codex subscription recommended)",
-    "command": "/plan",
-    "skills": [
-      "grilling",
-      "grill-with-docs",
-      "domain-modeling",
-      "setup-matt-pocock-skills",
-      "wayfinder",
-      "to-spec",
-      "to-tickets",
-      "codebase-design",
-      "improve-codebase-architecture",
-      "prototype",
-      "research"
-    ]
+  "version": 2,
+  "_comment": "Skills each Role run is handed by dispatch (lib/skills.mjs). Rules: only model-loadable skills, at most maxSkills per run, stack rules only when the repo uses that stack. User-only skills (wayfinder, how, blast-radius, interrogate, to-spec, to-tickets) are never called from a role; role prompts tell the human when to run them.",
+  "maxSkills": 6,
+  "roles": {
+    "architect": {
+      "core": ["grilling", "domain-modeling", "codebase-design"],
+      "optional": ["prototype", "research", "why"]
+    },
+    "builder": { "core": ["tdd", "diagnosing-bugs"], "stackRules": true },
+    "escalation": { "core": ["diagnosing-bugs", "codebase-design"], "stackRules": true },
+    "review": { "core": ["code-review"], "stackRules": true },
+    "docs": { "core": ["pr"] }
   },
-  "builder": {
-    "engine": "configured Builder Adapter (Z.AI GLM recommended)",
-    "command": "/build",
-    "skills": [
-      "react-native-skills",
-      "flutter-coding-rules",
-      "flutter-performance",
-      "flutter-security",
-      "supabase",
-      "supabase-postgres-best-practices",
-      "tdd",
-      "diagnose"
-    ],
-    "_note": "Load only the stack subset for the repo. RN repos: react-native-skills + supabase*. Flutter repos: flutter-* + supabase*."
-  },
-  "worker": {
-    "engine": "configured Worker Adapter (Z.AI GLM recommended)",
-    "command": ["/review", "/docs"],
-    "skills": [
-      "code-review",
-      "supabase-postgres-best-practices",
-      "handoff",
-      "caveman"
-    ],
-    "_note": "caveman trims output tokens on an already-cheap Engine."
+  "stacks": {
+    "expo-react-native": {
+      "detect": [{ "file": "package.json", "contains": ["\"react-native\"", "\"expo\""] }],
+      "skills": ["react-native-skills"]
+    },
+    "flutter": {
+      "detect": [{ "file": "pubspec.yaml" }],
+      "skills": ["flutter-coding-rules", "flutter-performance", "flutter-security"]
+    },
+    "supabase": {
+      "detect": [{ "dir": "supabase" }, { "file": "package.json", "contains": ["@supabase/"] }],
+      "skills": ["supabase", "supabase-postgres-best-practices"]
+    },
+    "firebase": {
+      "detect": [{ "file": "firebase.json" }, { "file": ".firebaserc" }],
+      "skills": ["firebase-basics"]
+    },
+    "ios-swift": {
+      "detect": [{ "suffix": ".xcodeproj" }, { "file": "Package.swift" }],
+      "skills": ["swiftui-expert-skill"]
+    }
   }
 }

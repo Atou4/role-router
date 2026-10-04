@@ -36,7 +36,8 @@ const config = (roles, profiles) => ({
 let cwd;
 const t0 = new Date('2026-10-04T12:00:00Z');
 const base = (over) => ({ mode: 'headless', get cwd() { return cwd; }, ...over });
-const deps = (cfg, extra = {}) => ({ agents, config: cfg, now: () => t0, sleep: async () => {}, ...extra });
+const noSkills = () => ({ stacks: [], skills: [], missing: [], dropped: [] });
+const deps = (cfg, extra = {}) => ({ agents, config: cfg, now: () => t0, sleep: async () => {}, skills: noSkills, ...extra });
 
 beforeEach(() => {
   launches.length = 0;
@@ -180,4 +181,21 @@ test('every headless run record carries git evidence', async () => {
   const out = await dispatch(base({ role: 'builder', task: 'TASK-001' }), deps(cfg));
   const record = JSON.parse(readFileSync(out.runs[0].recordPath, 'utf8'));
   assert.equal(typeof record.evidence?.uncommittedFiles, 'number');
+});
+
+test('the skills block is resolved per profile agent and appended to the prompt', async () => {
+  const cfg = config({ builder: { chain: ['a'], onTierDrop: 'auto' } }, [profile('a', 'A', 'ok', 'lite')]);
+  const seen = [];
+  const skills = ({ role, agent }) => { seen.push(`${role}/${agent}`); return { stacks: ['flutter'], skills: [{ name: 'tdd', why: 'core', path: '/x/tdd/SKILL.md' }], missing: ['pr'], dropped: [] }; };
+  const out = await dispatch(base({ role: 'builder', task: 'TASK-001' }), deps(cfg, { skills }));
+  assert.deepEqual(seen, ['builder/codex']);
+  assert.match(launches[0].prompt, /## Skills for this run[\s\S]*\/x\/tdd\/SKILL\.md/);
+  assert.deepEqual(out.skills, { loaded: ['tdd'], missing: ['pr'], stacks: ['flutter'] });
+});
+
+test('raw chat runs get no skills block', async () => {
+  const cfg = config({ builder: { chain: ['a'], onTierDrop: 'auto' } }, [profile('a', 'A', 'ok', 'lite')]);
+  const skills = () => { throw new Error('should not resolve skills for raw prompts'); };
+  await dispatch(base({ role: 'builder', task: 'TASK-001', raw: true, message: 'hello' }), deps(cfg, { skills }));
+  assert.equal(launches[0].prompt, 'hello');
 });

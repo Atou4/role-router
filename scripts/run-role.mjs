@@ -45,6 +45,7 @@ if (outcome.plan) {
   process.exit(0);
 }
 
+if (outcome.skills?.missing.length) console.error(`role-router: skills not installed for this agent: ${outcome.skills.missing.join(', ')} (see role-router skills doctor)`);
 const ran = outcome.runs.map((r) => `${r.profile}:${r.result.kind}`).join(' → ');
 if (ran && has('headless')) console.error(`role-router: ${ran}`);
 if (outcome.tierDropped) console.error('role-router: ran on a lighter tier than the chain head; re-review the result.');
