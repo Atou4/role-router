@@ -8,31 +8,24 @@
 //   node scripts/fan-out.mjs TASK-001 TASK-002 TASK-003
 //   node scripts/fan-out.mjs --concurrency=4 --base=origin/main TASK-00{1..6}
 //
-// Mechanism (adapted from gruckion/nested-subagent): each task is a separate
-// headless `claude -p "/build <id>"` OS process — a brand-new main agent with a
-// fresh context window and full tool access. The plugin spawns those children on
-// the VANILLA harness (your Max quota / paid API). We don't: by default we point
-// each child at the local CCR proxy via ANTHROPIC_BASE_URL, so every parallel
-// Builder runs on the cheap Engine (ADR-0001/0002). That is the whole reason this
-// exists instead of just installing the plugin.
+// Each task is launched through run-role.mjs, so its Builder binding may be
+// Codex CLI, OpenCode, or vanilla Claude without changing the scheduler.
 //
 // Flags:
 //   --concurrency=N   max simultaneous Builders            (default 3)
 //   --base=<ref>      branch to cut each task/<id> from     (default origin/dev)
-//   --engine=ccr|vanilla   route children via CCR or Max    (default ccr)
+//   --engine=role|vanilla   role binding or vanilla Claude override (default role)
 //   --no-worktree     build in the current dir (UNSAFE for >1 task)
 //   --prompt=<tmpl>   child prompt; {id} is substituted     (default "/build {id}")
 //   --yes             skip the confirmation prompt
-//
-// Env:
-//   ROLE_ROUTER_CCR_URL   CCR proxy base URL   (default http://127.0.0.1:3456)
-//   ROLE_ROUTER_CCR_KEY   key CCR expects      (default "ccr")
+//   --dry-run         validate and print the launch plan only
 
 import { spawn, execFileSync } from 'node:child_process';
-import { mkdirSync, createWriteStream } from 'node:fs';
+import { mkdirSync, createWriteStream, existsSync, readFileSync } from 'node:fs';
 import { createInterface } from 'node:readline';
-import { request } from 'node:http';
+import os from 'node:os';
 import path from 'node:path';
+import { fileURLToPath } from 'node:url';
 
 // ── args ────────────────────────────────────────────────────────────────────
 const argv = process.argv.slice(2);
@@ -45,13 +38,11 @@ const has = (name) => argv.includes(`--${name}`);
 const ids = argv.filter((a) => !a.startsWith('--'));
 const concurrency = Math.max(1, Number(opt('concurrency', '3')) || 3);
 const base = opt('base', 'origin/dev');
-const engine = opt('engine', 'ccr');
+const engine = opt('engine', 'role');
 const useWorktree = !has('no-worktree');
 const promptTmpl = opt('prompt', '/build {id}');
 const autoYes = has('yes');
-
-const CCR_URL = process.env.ROLE_ROUTER_CCR_URL || 'http://127.0.0.1:3456';
-const CCR_KEY = process.env.ROLE_ROUTER_CCR_KEY || 'ccr';
+const dryRun = has('dry-run');
 
 const red = (s) => `\x1b[31m${s}\x1b[0m`;
 const grn = (s) => `\x1b[32m${s}\x1b[0m`;
@@ -59,40 +50,22 @@ const dim = (s) => `\x1b[2m${s}\x1b[0m`;
 const die = (msg) => { console.error(red(msg)); process.exit(1); };
 
 if (ids.length === 0) {
-  die('Usage: fan-out.mjs [--concurrency=N] [--base=ref] [--engine=ccr|vanilla] [--no-worktree] TASK-001 TASK-002 …');
+  die('Usage: fan-out.mjs [--concurrency=N] [--base=ref] [--engine=role|vanilla] [--no-worktree] TASK-001 TASK-002 …');
 }
 if (!useWorktree && ids.length > 1) {
   die('Refusing to run >1 task with --no-worktree: parallel builds in one dir corrupt each other. Drop --no-worktree.');
 }
 
 const REPO = execFileSync('git', ['rev-parse', '--show-toplevel'], { encoding: 'utf8' }).trim();
+const SCRIPT_DIR = path.dirname(fileURLToPath(import.meta.url));
+const RUN_ROLE = path.join(SCRIPT_DIR, 'run-role.mjs');
 const WT_ROOT = path.join(REPO, '.role-router', 'worktrees');
 const LOG_ROOT = path.join(REPO, '.role-router', 'runs');
 mkdirSync(LOG_ROOT, { recursive: true });
 
 // ── child environment ───────────────────────────────────────────────────────
 function childEnv() {
-  if (engine === 'vanilla') return process.env; // Max quota / paid API — caller's choice
-  return {
-    ...process.env,
-    ANTHROPIC_BASE_URL: CCR_URL,
-    ANTHROPIC_API_KEY: CCR_KEY,
-    ANTHROPIC_AUTH_TOKEN: CCR_KEY,
-  };
-}
-
-// ── CCR preflight ─────────────────────────────────────────────────────────────
-function ccrReachable() {
-  return new Promise((resolve) => {
-    const u = new URL(CCR_URL);
-    const req = request(
-      { hostname: u.hostname, port: u.port || 80, path: '/', method: 'GET', timeout: 1500 },
-      (res) => { res.resume(); resolve(true); },
-    );
-    req.on('error', () => resolve(false));
-    req.on('timeout', () => { req.destroy(); resolve(false); });
-    req.end();
-  });
+  return process.env;
 }
 
 // ── one Builder ───────────────────────────────────────────────────────────────
@@ -123,13 +96,29 @@ function buildOne(id) {
     const logFile = createWriteStream(logPath);
     const prompt = promptTmpl.replaceAll('{id}', id);
 
-    const child = spawn('claude', [
-      '-p', prompt,
-      '--output-format', 'stream-json',
-      '--verbose',
-      '--dangerously-skip-permissions', // headless: gates run unattended (build is on its own branch/worktree)
-      '--add-dir', REPO,
-    ], { cwd, env: childEnv(), stdio: ['ignore', 'pipe', 'pipe'] });
+    const launch = engine === 'role'
+      ? {
+          command: process.execPath,
+          args: [RUN_ROLE, 'builder', id, '--headless', `--cwd=${cwd}`],
+          env: process.env,
+        }
+      : {
+          command: 'claude',
+          args: [
+            '-p', prompt,
+            '--output-format', 'stream-json',
+            '--verbose',
+            '--dangerously-skip-permissions',
+            '--add-dir', REPO,
+          ],
+          env: childEnv(),
+        };
+
+    const child = spawn(launch.command, launch.args, {
+      cwd,
+      env: launch.env,
+      stdio: ['ignore', 'pipe', 'pipe'],
+    });
 
     let result = null;
     const rl = createInterface({ input: child.stdout });
@@ -177,13 +166,22 @@ async function pool(items, n, worker) {
 
 // ── main ──────────────────────────────────────────────────────────────────────
 console.log(`Fan-out: ${ids.length} task(s), concurrency ${concurrency}, engine ${engine}${useWorktree ? ', isolated worktrees' : ', SHARED dir'}.`);
-if (engine === 'ccr') {
-  if (!(await ccrReachable())) {
-    die(`CCR proxy not reachable at ${CCR_URL}. Start it with \`ccr start\` (or set ROLE_ROUTER_CCR_URL). To deliberately use Max quota instead: --engine=vanilla.`);
-  }
-  console.log(dim(`CCR proxy ok at ${CCR_URL} → children route to the cheap Engine.`));
+if (engine === 'role') {
+  if (!existsSync(RUN_ROLE)) die(`Role adapter not found at ${RUN_ROLE}. Re-run install.sh.`);
+  const roleConfigPath = process.env.ROLE_ROUTER_CONFIG || path.join(os.homedir(), '.role-router', 'config.json');
+  if (!existsSync(roleConfigPath)) die(`Role config not found at ${roleConfigPath}. Run role-router configure.`);
+  const roleConfig = JSON.parse(readFileSync(roleConfigPath, 'utf8'));
+  const adapter = roleConfig.roles?.builder?.adapter;
+  if (!adapter || adapter === 'unconfigured') die(`Builder has no configured adapter in ${roleConfigPath}.`);
+  console.log(dim(`Builder adapter: ${adapter}${roleConfig.roles.builder.model ? ` (${roleConfig.roles.builder.model})` : ''}.`));
 } else {
-  console.log(red('engine=vanilla: children run on your Max quota / paid API.'));
+  if (engine !== 'vanilla') die(`Unknown engine "${engine}". Use role or vanilla.`);
+  console.log(red('engine=vanilla: children run on your Claude Max quota / paid API.'));
+}
+
+if (dryRun) {
+  console.log(JSON.stringify({ ids, concurrency, base, engine, useWorktree }, null, 2));
+  process.exit(0);
 }
 
 if (!autoYes) {

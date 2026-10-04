@@ -11,7 +11,7 @@ GSD is a **product** (≈33 agents, ≈70 commands, npm + plugin + 10-runtime in
 | | Role Router | GSD Core |
 |---|---|---|
 | **Founding problem** | minimize spend — **Max quota *and* API $** | context rot (quality decay as the window fills) |
-| **Routing axis** | by **Role**, across **providers** (Claude Max ↔ cheap OpenRouter via CCR) | by **agent/tier**, within one provider family (Opus/Sonnet/Haiku); other providers are a config option |
+| **Routing axis** | by **Role**, across **harnesses/providers** (Codex subscription ↔ OpenCode APIs) | by **agent/tier**, within one provider family (Opus/Sonnet/Haiku); other providers are a config option |
 | **Cost lever** | cheap Engine for 60–80% of work; Architect stays on Max | tier-escalation (start cheap, bump one tier on soft-failure) |
 | **Max-quota awareness** | **yes — the design center** | **no** — GSD's own research notes Claude Code doesn't expose Max limits to hooks ([CC #32796]); it can't see or target Max quota |
 | **Granularity** | 3 roles | 6-stage loop (Discuss→Plan→Execute→Verify→Ship) over ~33 agents |
@@ -36,10 +36,10 @@ GSD is a **product** (≈33 agents, ≈70 commands, npm + plugin + 10-runtime in
 
 ## What Role Router already does that GSD does not
 
-1. **Cross-provider role routing as the architecture**, not a config corner — cheap OpenRouter Builder via CCR *inside* the Claude Code harness, vs GSD shelling out to separate CLIs (Gemini/Codex/Ollama) for non-Anthropic work.
+1. **Cross-provider role routing as the architecture**, not a config corner — subscription-backed Codex for planning and OpenCode for Z.AI/OpenRouter execution.
 2. **Dual cost objective incl. Max quota** — GSD optimizes API dollars only and literally can't see Max limits.
 3. **Radical simplicity** — 3 roles vs 33 agents / 70 commands. GSD's docs admit "overhead… latency… ceremony for simple tasks." Far lower adoption cost.
-4. **In-harness CCR routing** for the build step — lighter than spawning a second CLI per non-Anthropic call.
+4. **Direct harness launching** with no proxy daemon: each role opens in the target repository with its initial prompt already loaded.
 
 ## Suggested roadmap order
 

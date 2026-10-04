@@ -4,10 +4,11 @@
 
 **Route engineering work to the cheapest *capable* model — by the role it needs, not the model you remember.**
 
-Spend planning time on a capable model (your Claude Max quota if you have it, or your strongest provider otherwise); let the 60–80% bulk of building and admin run **~7–128× cheaper** on other models. Drops into any repo. Shareable with one install script.
+Spend planning time on a subscription-backed Codex or Claude engine; let the bulk of building and admin run on API-backed engines such as Z.AI GLM. Drops into any repo and keeps authentication boundaries explicit.
 
-[![Claude Code](https://img.shields.io/badge/runs%20on-Claude%20Code-d97757)](https://claude.com/claude-code)
-[![CCR](https://img.shields.io/badge/proxy-claude--code--router-555)](https://github.com/musistudio/claude-code-router)
+[![Codex](https://img.shields.io/badge/harness-Codex-111)](https://developers.openai.com/codex/)
+[![Claude Code](https://img.shields.io/badge/harness-Claude%20Code-d97757)](https://claude.com/claude-code)
+[![OpenCode](https://img.shields.io/badge/API%20harness-OpenCode-111)](https://opencode.ai/)
 [![Shell](https://img.shields.io/badge/install-bash-4EAA25?logo=gnubash&logoColor=white)](install.sh)
 [![Status](https://img.shields.io/badge/status-active-success)](#)
 
@@ -16,11 +17,11 @@ Spend planning time on a capable model (your Claude Max quota if you have it, or
 > **The one rule:** _route on **roles**, not models._ Today's cheap coder is replaced in months — bind each role to a swappable **Engine** and the workflow never changes. ([ADR-0001](docs/adr/0001-roles-not-engines.md))
 
 ```
-   Vanilla Context (Max)              CCR Context (`ccr code` → OpenRouter)
+   Codex CLI (Plus/Pro)               OpenCode → Z.AI / OpenRouter
    ┌────────────────┐                 ┌──────────────────────────────────┐
-   │ /plan          │  ── task file → │ /build  →  /review  →  /docs      │
-   │ Architect      │   (Handoff      │ Builder    Worker      Worker     │
-   │ Claude / Max   │    Artifact)    │ Kimi       DeepSeek    DeepSeek   │
+   │ Architect      │  ── task file → │ Builder  →  Worker  →  Worker    │
+   │ /plan          │   (Handoff      │ /build     /review    /docs      │
+   │ subscription   │    Artifact)    │ API key     API key    API key    │
    └────────────────┘                 └──────────────────────────────────┘
 ```
 
@@ -32,6 +33,7 @@ Spend planning time on a capable model (your Claude Max quota if you have it, or
 - [The three roles](#the-three-roles)
 - [Prerequisites](#prerequisites)
 - [Quickstart](#quickstart)
+- [Planning paths](#planning-paths)
 - [Guide: ship your first feature](#guide-ship-your-first-feature)
 - [Command reference](#command-reference)
 - [Parallel builders — `/fan-out`](#parallel-builders--fan-out)
@@ -53,7 +55,7 @@ Coding agents are cheap to run *wrong* and expensive to run *well*. Most setups 
 
 Role Router splits the work by the *kind of thinking it needs* and binds each kind to its own Engine:
 
-- **Planning** is rare, high-leverage — run it on your strongest model (Claude Max if you have it, otherwise your best provider).
+- **Planning** is rare, high-leverage — run it on your strongest subscription-backed or API engine.
 - **Building** is the bulk — run it on a cheap, capable coder.
 - **Admin** (review, docs, PR bodies) is the cheapest tier of all.
 
@@ -63,9 +65,9 @@ You keep one workflow; the models behind it are config you can swap in a month w
 
 | Role | Does | Command(s) | Engine (default) | Billing |
 |---|---|---|---|---|
-| 🧠 **Architect** | plan, decompose, harden specs | `/plan` | Claude Opus — **Max, vanilla** | quota |
-| 🔨 **Builder** | implement, test, refactor | `/build` | `moonshotai/kimi-k2.6` (CCR) | ~$3.4 / 1M out |
-| 🧹 **Worker** | review, docs, PR bodies, status | `/review` `/docs` | `deepseek/deepseek-v4-flash` (CCR) | ~$0.2 / 1M out |
+| 🧠 **Architect** | plan, decompose, harden specs | `/plan` | Codex CLI subscription | included usage/credits |
+| 🔨 **Builder** | implement, test, refactor | `/build` | Z.AI `glm-4.7` via OpenCode | Z.AI plan/API |
+| 🧹 **Worker** | review, docs, PR bodies, status | `/review` `/docs` | Z.AI `glm-4.7` via OpenCode | Z.AI plan/API |
 
 > An **Engine** is the concrete model bound to a Role right now. Engines change; Roles don't. ([CONTEXT.md](CONTEXT.md) is the full glossary.)
 
@@ -74,8 +76,9 @@ You keep one workflow; the models behind it are config you can swap in a month w
 | Need | Why | Get it |
 |---|---|---|
 | **Node.js** ≥ 18 | runs the installer, `configure.mjs`, `board.mjs`, `fan-out.mjs` | <https://nodejs.org> |
-| **Claude Code** | the harness all commands run in | `npm i -g @anthropic-ai/claude-code` |
-| A **Claude Max** plan *(optional)* | lets Architect run on quota; without it, Architect routes through your strongest provider | <https://claude.com/claude-code> |
+| **Codex CLI** *(optional)* | uses ChatGPT Plus/Pro for subscription-backed roles | `npm i -g @openai/codex` then `codex login` |
+| **OpenCode** | hosts API-backed Z.AI/OpenRouter roles | `npm i -g opencode-ai` |
+| A **Claude Max** plan *(optional)* | alternative subscription-backed Architect | <https://claude.com/claude-code> |
 | At least **one** provider plan | Builder/Worker need a cheap Engine | see below |
 | **git** | the workflow is branch- and worktree-based | preinstalled on most systems |
 | **`gh`** (optional) | lets `/next` reconcile and open PRs | <https://cli.github.com> |
@@ -84,8 +87,10 @@ You keep one workflow; the models behind it are config you can swap in a month w
 
 | Provider | Get it |
 |---|---|
-| OpenAI (Codex, o3-mini, etc.) | <https://platform.openai.com/api-keys> |
-| Zhipu AI (GLM) | <https://open.bigmodel.cn/dev/api#api_key> |
+| ChatGPT Plus/Pro with Codex | sign in using `codex login`; API-provider keys remain separate |
+| Z.AI GLM Coding Plan | dedicated `https://api.z.ai/api/coding/paas/v4` endpoint |
+| Z.AI General API | `https://api.z.ai/api/paas/v4` |
+| OpenAI API *(separate billing)* | <https://platform.openai.com/api-keys> |
 | OpenRouter (aggregates many) | <https://openrouter.ai/keys> |
 | Anthropic API (paid, escalation only) | <https://console.anthropic.com/settings/keys> |
 
@@ -101,74 +106,72 @@ git clone https://github.com/Atou4/role-router.git && cd role-router
 
 The installer launches an **interactive CLI** that:
 
-1. ✅ Checks prerequisites (Node.js, Claude Code, CCR)
-2. 🔑 **Asks which providers you have** (OpenAI Codex, Zhipu GLM, OpenRouter, Anthropic API)
-3. 🔑 **Collects your API keys** for each provider
-4. ⚙️ **Proposes a routing** based on what you have (Builder → Codex/o3-mini, Worker → GLM-4-flash, etc.)
+1. ✅ Checks prerequisites (Node.js, Codex CLI, OpenCode)
+2. 🔐 **Asks which subscription harnesses you have** (Codex Plus/Pro, Claude Max)
+3. 🔑 **Asks which API providers you have** (Z.AI Coding Plan/General API, OpenAI API, OpenRouter, Anthropic API)
+4. ⚙️ **Proposes role bindings** (Architect → Codex, Builder/Worker → Z.AI)
 5. 🎛️ **Lets you customize** which model serves each Role
-6. 📝 **Generates** `~/.claude-code-router/config.json` tailored to your setup
-7. 📦 **Installs** the six commands, Hint Hook, and drivers into `~/.claude`
+6. 📝 **Generates** `~/.role-router/config.json`
+7. 📦 **Installs** the commands, Hint Hook, drivers, and `role-router` launcher
 
 Then it prints the **shell exports** you need to add to your profile (`~/.zshrc` or `~/.bash_profile`):
 
 ```bash
 export OPENAI_API_KEY="sk-..."        # if you selected OpenAI
-export ZHIPU_API_KEY="..."           # if you selected Zhipu
+export ZAI_API_KEY="..."             # either Z.AI mode
 export OPENROUTER_API_KEY="sk-or-..." # if you selected OpenRouter
 ```
 
-Finally, apply the CCR config and you're ready:
+> **Authentication guardrail:** Codex subscriptions use Codex CLI login. API-backed roles use OpenCode provider credentials. Role Router never extracts or converts subscription credentials. ([ADR-0005](docs/adr/0005-engine-adapters-separate-harnesses-from-providers.md))
 
-```bash
-ccr restart
-```
+## Planning paths
 
-> ⚠️ **Money guardrail:** CCR authenticates with **API keys**, not your Max subscription. Anything launched via `ccr code` bills the paid API. If you have Max, `/plan` is the *only* command you run in a plain `claude` session (it stays on Max quota). If you don't have Max, the installer configures Architect to route through your strongest provider via CCR. The installer explains this before proceeding. ([ADR-0002](docs/adr/0002-architect-on-max-vanilla-context.md))
+Role Router adopts the mattpocock/skills v1.1 lifecycle without replacing its role commands. `/plan` is the local-board adapter for **Grilling → Spec → Tickets**: it uses the upgraded grilling rules, synthesizes spec decisions, and writes approved tracer-bullet tickets as the Handoff Artifact.
+
+Choose by planning size:
+
+| Situation | Architect path | Result |
+|---|---|---|
+| Clear enough for one strong session | `/plan <feature>` | `PLAN.md` or `.agent-board/` specs ready for `/build` |
+| Too large or foggy for one session | `/wayfinder <idea>` across sessions, then `/plan <map reference>` | a collaborative decision map, then Role Router task specs |
+| Tracker-native workflow without Role Router's board | `/grill-with-docs` → `/to-spec` → `/to-tickets` | tracker tickets worked with `/implement`, then `/code-review` |
+
+The grilling gate is explicit: the Architect looks up facts, asks the user to make decisions one at a time, and does not write tickets until the user confirms shared understanding and approves the dependency graph. See [ADR-0004](docs/adr/0004-adopt-skills-v1-1-within-role-pipeline.md).
 
 ## Guide: ship your first feature
 
-A complete loop, from idea to an open PR. **Two terminals (or two sessions)** — one vanilla, one routed.
+A complete loop, from idea to an open PR, with each command launching the configured adapter.
 
-### 1 · Plan it (Architect — Max quota)
-
-Open a **plain** Claude Code session:
+### 1 · Plan it (Architect — Codex subscription)
 
 ```bash
-claude
-```
-```text
-/plan add phone verification to onboarding
+role-router run architect "add phone verification to onboarding"
 ```
 
-`/plan` hardens the idea into one or more **self-contained task specs** — written to a root `PLAN.md` (or a `.agent-board/` task if your repo uses one). Each task carries a `status:` and a `depends:` list. This is the only step that uses Claude/Max.
+`/plan` grills decisions, synthesizes the spec, and decomposes it into approved **self-contained tracer-bullet task specs** — written to a root `PLAN.md` (or a `.agent-board/` task if your repo uses one). Each task carries a `status:` and a `depends:` list. This is the only step that uses Claude/Max.
 
-> 💡 Nothing else needs the Architect in-context again — the spec **is** the handoff.
+> Nothing else needs the Architect context again — the spec is the handoff.
 
 ### 2 · Build it (Builder — cheap Engine)
 
-Open a **routed** session:
-
 ```bash
-ccr code
-```
-```text
-/build TASK-001
+role-router run builder TASK-001
 ```
 
-The Builder (Kimi, via CCR) reads the spec in a fresh context, implements the task, and runs your project's quality gates (typecheck / tests / Maestro). If the gates fail **twice**, that single task **escalates** to Claude automatically — capping the cheap model's rework tax. Green gates flip the task to `review`.
+The Builder reads the spec in a fresh context, implements the task, and runs quality gates. With the recommended setup this is GLM-4.7 through OpenCode. Difficult work escalates to GLM-5.2.
 
 ### 3 · Review it (Worker — cheapest Engine)
 
-```text
-/review TASK-001
+```bash
+role-router run worker TASK-001
 ```
 
-The Worker (DeepSeek) checks the diff against the spec's acceptance criteria and **emits a status** — `passed`, `gaps_found`, or `human_needed`. That status, not its prose, is what the loop routes on next.
+The configured Worker checks the diff against the spec's acceptance criteria and **emits a status** — `passed`, `gaps_found`, or `human_needed`. That status, not its prose, is what the loop routes on next.
 
 ### 4 · Document it & open the PR (Worker)
 
-```text
-/docs TASK-001
+```bash
+role-router run docs TASK-001
 ```
 
 The Worker writes the PR body, updates the board, and opens the PR. The loop **pauses here** — merging is a human decision.
@@ -184,21 +187,20 @@ Instead of running steps 2–4 by hand, chain them and auto-pick the next task:
 One supervised iteration: reconcile merged PRs → `done`, guard that the previous PR is settled, then **route on status** — re-build a `gaps_found`, stop on `human_needed`, otherwise build the next task whose dependencies are all `done`. It refuses to build an un-planned task; that's the Architect's job, on Max.
 
 ```
-  claude   →  /plan          ┐
-  ccr code →  /next          │  repeat /next until the queue drains;
-            (build→review→docs)┘  each iteration stops at a PR (human gate)
+  role-router run architect  → PLAN.md
+  /next → role-router run builder → worker → docs
 ```
 
 ## Command reference
 
-| Command | Role | Context | What it does |
+| Command | Role | Adapter | What it does |
 |---|---|---|---|
-| `/plan <feature>` | Architect | `claude` (Max) | Harden an idea into task specs with `status:` + `depends:` |
-| `/build <id>` | Builder | `ccr code` | Implement one task, run gates, escalate on 2× fail |
-| `/review <id>` | Worker | `ccr code` | Check the diff vs. spec; emit `passed` / `gaps_found` / `human_needed` |
-| `/docs <id>` | Worker | `ccr code` | Write the PR body, update the board, open the PR |
-| `/next` | Builder+Worker | `ccr code` | One loop turn: pick next buildable task → build → review → docs |
-| `/fan-out <ids…>` | Builder ×N | `ccr code` | Build many **independent** tasks in parallel, fresh context each |
+| `role-router run architect <feature>` | Architect | configured, normally Codex | Harden an idea into task specs |
+| `role-router run builder <id>` | Builder | configured, normally OpenCode/Z.AI | Implement one task and run gates |
+| `role-router run worker <id>` | Worker | configured, normally OpenCode/Z.AI | Emit `passed` / `gaps_found` / `human_needed` |
+| `role-router run docs <id>` | Worker | configured | Write PR body, update board, open PR |
+| `/next` | Builder+Worker | launches each binding | One adapter-driven loop turn |
+| `/fan-out <ids…>` | Builder ×N | Builder binding | Parallel independent tasks in fresh contexts |
 
 **Board driver** (`board.mjs`, installed at `~/.claude/role-router/`):
 
@@ -214,14 +216,13 @@ node ~/.claude/role-router/board.mjs set-status TASK-003 review
 
 For a batch of **independent** tasks, skip the one-at-a-time loop and build them all at once:
 
-```text
-ccr code
-/fan-out TASK-001 TASK-002 TASK-003
+```bash
+node ~/.claude/role-router/fan-out.mjs TASK-001 TASK-002 TASK-003
 ```
 
-Each task runs as its own headless `claude -p "/build …"` process — a **fresh 200k context window** with full tool access — in its **own git worktree**, so parallel builds never clobber each other's branch. Every child is pointed at the CCR proxy, so all the parallel Builders bill to the **cheap Engine**, not Max.
+Each task runs through the configured Builder adapter in its own git worktree. An API binding launches `opencode run`; a Codex binding launches `codex exec`.
 
-This is the [`nested-subagent`](https://github.com/gruckion/nested-subagent) mechanism (headless `claude -p` per task) adapted for cost: the upstream plugin spawns children on your Max quota; we route them through CCR instead. The spawner is [`scripts/fan-out.mjs`](scripts/fan-out.mjs):
+The spawner is [`scripts/fan-out.mjs`](scripts/fan-out.mjs); each child uses the configured role adapter and a fresh context:
 
 ```bash
 node ~/.claude/role-router/fan-out.mjs --concurrency=3 --base=origin/dev TASK-001 TASK-002
@@ -231,10 +232,11 @@ node ~/.claude/role-router/fan-out.mjs --concurrency=3 --base=origin/dev TASK-00
 |---|---|---|
 | `--concurrency=N` | `3` | how many Builders run at once |
 | `--base=<ref>` | `origin/dev` | branch each worktree forks from |
-| `--engine=ccr\|vanilla` | `ccr` | route children through CCR (cheap) or plain (Max) |
+| `--engine=role\|vanilla` | `role` | use the Builder binding or vanilla Claude override |
 | `--no-worktree` | off | build in the current dir (single task only) |
 | `--prompt=<tmpl>` | `/build {id}` | the command each child runs |
 | `--yes` | off | skip the confirmation prompt |
+| `--dry-run` | off | validate config and print the launch plan without creating worktrees |
 
 > Use `/next` for **dependent** work (build in order, one PR at a time) and `/fan-out` for **independent** work (a whole wave at once).
 
@@ -269,25 +271,45 @@ Engines are config, not architecture. You have two options:
 
 ```bash
 cd /path/to/role-router
-./install.sh    # or directly: node scripts/configure.mjs
+role-router configure
 ```
 
 This re-prompts you for providers and models, and regenerates the config.
 
-**Option 2 — Edit the config directly:**
+To jump directly into any repository without creating a plan first:
 
-Edit the `Router` block in `~/.claude-code-router/config.json`:
-
-```jsonc
-"default":    "openrouter,z-ai/glm-5.2",           // try GLM-5.2 as Builder
-"background": "openrouter,deepseek/deepseek-v4-flash"
+```bash
+cd /path/to/repository
+role-router chat architect "inspect this codebase and help me continue the current work"
+role-router chat builder "fix the failing checkout test"
 ```
 
-Then `ccr restart`. The provider catalog (`providers/catalog.json`) lists current model IDs and pricing.
+`chat` starts an interactive conversation with the initial message immediately. Use `run` when you want the structured plan/build/review workflow and its file-based handoffs.
+
+**Option 2 — Edit the config directly:**
+
+Edit role-to-adapter bindings in `~/.role-router/config.json`:
+
+```jsonc
+"architect": { "adapter": "codex" },
+"builder": { "adapter": "opencode", "provider": "zai-coding-plan", "model": "zai-coding-plan/glm-4.7", "keyEnv": "ZAI_API_KEY" },
+"worker": { "adapter": "opencode", "provider": "zai-coding-plan", "model": "zai-coding-plan/glm-4.7", "keyEnv": "ZAI_API_KEY" }
+```
+
+Authenticate API providers using `opencode auth login` or their documented environment variable. Subscription-backed Codex uses the existing `codex login` session.
+
+OpenRouter models use the same adapter. For example, Kimi for building and DeepSeek for review:
+
+```jsonc
+"builder": { "adapter": "opencode", "provider": "openrouter", "model": "openrouter/moonshotai/kimi-k2.7-code", "keyEnv": "OPENROUTER_API_KEY" },
+"worker": { "adapter": "opencode", "provider": "openrouter", "model": "openrouter/deepseek/deepseek-v4-flash", "keyEnv": "OPENROUTER_API_KEY" }
+```
+
+This is a binding change only; the `/plan`, `/build`, `/review`, `/docs`, and fan-out workflow stays the same.
 
 ## Skill catalog
 
-[`catalog/`](catalog/) classifies 25 recommended agent skills **by domain** (mobile RN, Flutter, web/UI-UX, backend/data, planning, delivery, quality, meta) and maps each to a Role. We don't vendor skill bodies — each points to its **original source** + install command, so skills stay current with upstream and there's no redistribution-license risk.
+[`catalog/`](catalog/) classifies 32 recommended agent skills **by domain** (mobile RN, Flutter, web/UI-UX, backend/data, planning, delivery, quality, meta) and maps each to a Role. We don't vendor skill bodies — each points to its **original source** + install command, so skills stay current with upstream and there's no redistribution-license risk.
 
 ```bash
 ./install-skills.sh                 # list domains
@@ -298,30 +320,36 @@ Then `ccr restart`. The provider catalog (`providers/catalog.json`) lists curren
 
 [`skills-manifest.json`](skills-manifest.json) maps each Role to recommended skills — load only your stack's subset. Builder/Worker skills are deliberately checklist-style so a weaker Engine can follow them; heavy reasoning skills (`grill-with-docs`, `improve-codebase-architecture`) stay on the Architect.
 
+The v1.1 names are canonical: `to-spec` replaces `to-prd`, and `to-tickets` replaces `to-issues`/upstream `to-plan`. Because installers do not remove renamed skills, delete stale copies after reinstalling upstream; `install-skills.sh` warns when it finds them:
+
+```bash
+npx skills add mattpocock/skills
+```
+
 ## How it works under the hood
 
 The Architect writes a self-contained spec (board task or `PLAN.md`); the Builder reads it in a fresh session on a cheap Engine. **State crosses the boundary through files, not shared context** — so the cheap Engine never needs Claude's reasoning in-window.
 
-**Two launch contexts, on purpose:** CCR can't reuse your Max subscription (it uses API keys), so `/plan` runs in a plain `claude` session to stay on Max quota, and only `/build` / `/review` / `/docs` run via `ccr code`. This is both the routing mechanism and the money guardrail. ([ADR-0002](docs/adr/0002-architect-on-max-vanilla-context.md), [ADR-0003](docs/adr/0003-split-pipeline-per-role.md))
+**Adapters separate harnesses from providers:** `run-role.mjs` loads the same role prompt, then launches Codex, OpenCode, or vanilla Claude. `PLAN.md`, git diffs, and task status remain the cross-harness contract. ([ADR-0003](docs/adr/0003-split-pipeline-per-role.md), [ADR-0005](docs/adr/0005-engine-adapters-separate-harnesses-from-providers.md))
 
 ## Troubleshooting & FAQ
 
 <details>
-<summary><strong>Will this accidentally bill my Claude Max usage to the paid API?</strong></summary>
+<summary><strong>Can OpenCode spend my Codex Plus subscription?</strong></summary>
 
-No — as long as you run `/plan` in a plain `claude` session and everything else in `ccr code`. CCR only ever talks to OpenRouter (and to Anthropic *only* on an explicit Escalation, which is billed on purpose). The installer warns about this before writing anything.
+No. Codex subscription roles launch through Codex CLI. OpenCode uses its own provider credentials.
 </details>
 
 <details>
-<summary><strong><code>ccr: command not found</code> after install</strong></summary>
+<summary><strong><code>opencode: command not found</code> after install</strong></summary>
 
-CCR is a global npm package. Make sure your global npm bin is on `PATH` (`npm bin -g`), then re-open the shell. Re-run `./install.sh` — it's safe to run again.
+OpenCode is installed globally. Make sure your global npm bin is on `PATH`, then reopen the shell. Re-run `./install.sh`; it is safe to run again.
 </details>
 
 <details>
 <summary><strong><code>/build</code> says the model is unauthorized / 401</strong></summary>
 
-Your `OPENROUTER_API_KEY` isn't set in the environment CCR sees. Export it in your shell profile and `ccr restart`. The CCR config references it as `${OPENROUTER_API_KEY}`.
+Check the environment variable referenced by the selected provider. Z.AI uses `ZAI_API_KEY`; OpenRouter uses `OPENROUTER_API_KEY`. You can also run `opencode auth login`.
 </details>
 
 <details>
@@ -344,9 +372,11 @@ No. If your repo has an `.agent-board/`, the commands use its board tool instead
 
 ## Docs
 
-- [`CONTEXT.md`](CONTEXT.md) — the shared vocabulary (Role, Engine, Vanilla/CCR Context, Handoff Artifact, Escalation, Fan-out, Wave, Worktree).
-- [`docs/adr/`](docs/adr/) — the three load-bearing decisions and why.
+- [`CONTEXT.md`](CONTEXT.md) — the shared vocabulary (Role, Engine, Adapter, Handoff Artifact, Escalation, Fan-out, Wave, Worktree).
+- [`docs/adr/`](docs/adr/) — the load-bearing decisions and why.
 - [`docs/task-spec.md`](docs/task-spec.md) — the task format + status contract (`planned`→…→`done`) and `depends:` scheduling.
+- [`docs/adr/0004-adopt-skills-v1-1-within-role-pipeline.md`](docs/adr/0004-adopt-skills-v1-1-within-role-pipeline.md) — how Wayfinder and the renamed lifecycle skills fit Role Router.
+- [`docs/adr/0005-engine-adapters-separate-harnesses-from-providers.md`](docs/adr/0005-engine-adapters-separate-harnesses-from-providers.md) — why Codex subscriptions and Z.AI API routes use different Adapters.
 - [`docs/comparison-gsd.md`](docs/comparison-gsd.md) — how Role Router stacks up against [GSD Core](https://github.com/open-gsd/gsd-core), and the prioritized list of ideas to steal.
 
 ## Contributing

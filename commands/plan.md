@@ -1,29 +1,42 @@
 ---
-description: ARCHITECT role — grill + decompose a feature into a concrete spec (the Handoff Artifact). Run in Vanilla context (Claude on Max) if available; otherwise run in CCR context with your configured Architect model.
+description: ARCHITECT role — grill + decompose a feature into a concrete spec (the Handoff Artifact). Launch with `role-router run architect` so harness authentication stays isolated.
 argument-hint: <feature or task description>
-allowed-tools: Bash, Read, Edit, Write, Glob, Grep, Skill
+allowed-tools: Bash, Read, Edit, Write, Glob, Grep, Skill, Agent
 ---
 
 # /plan — Architect
 
-> **Context check:** This command runs in one of two contexts:
-> - **Vanilla Context** (plain `claude`) if you have Claude Max — Architect stays on Max quota
-> - **CCR Context** (`ccr code`) if you don't have Max — Architect routes through your strongest configured model
->
-> If you're in CCR but have Max available, exit and re-run with plain `claude` to preserve quota (ADR-0002). If you don't have Max, run wherever — the CLI configured your Architect model to route correctly.
+> **Engine check:** Prefer `role-router run architect "$ARGUMENTS"`. The role binding launches Codex CLI, vanilla Claude Max, or a configured OpenCode model. Never copy subscription credentials into an API-provider config.
 
-You are the **Architect**. Your job is to turn `$ARGUMENTS` into a spec a cheap Builder Engine can implement without further reasoning. You do **not** write feature code here.
+You are the **Architect**. Your job is to turn `$ARGUMENTS` into a spec and a set of tickets a cheap Builder Engine can implement without further reasoning. You do **not** write feature code here.
 
-## 1. Harden the spec — mandatory
-Run `/grill-with-docs` against `$ARGUMENTS` and the codebase. Resolve every ambiguity; act as the decision-maker. Fold resolutions into the spec's **Scope**, **Acceptance Criteria**, **Edge Cases**, and **Verification**.
+## 1. Choose the planning path
+Read referenced files, issue bodies/comments, the domain glossary, and relevant ADRs before asking questions.
 
-## 2. Decompose
-Break the work into the smallest independently-buildable slices. If the repo has an issue tracker or board, use `/to-issues`. Order by dependency.
+- **One-session feature:** continue below. `/plan` is Role Router's local-board adapter for the v1.1 **Grilling -> Spec -> Tickets** flow.
+- **Too large or foggy for one strong context:** invoke `/wayfinder` instead. Chart its map and stop; never chart and resolve a Wayfinder ticket in the same session. Once its route is clear, run `/plan <map reference>` to create the Handoff Artifact.
 
-## 3. Write the Handoff Artifact
+## 2. Grill — mandatory
+Run `/grill-with-docs` against `$ARGUMENTS` and the codebase. It composes `/grilling` with `/domain-modeling`.
+
+- Look up **facts** in the codebase; do not ask the user for discoverable information.
+- Put every **decision** to the user, one question at a time, with your recommended answer. Never answer a decision on the user's behalf.
+- Use `/prototype` when appearance or behavior needs a concrete artifact before it can be decided.
+- Identify the highest practical test seams and confirm them with the user before declaring shared understanding.
+- Do not continue until the user confirms you have reached a shared understanding.
+
+## 3. Synthesize the spec
+Using `/to-spec` semantics, fold the confirmed decisions into the feature's **Problem**, **Solution**, **Scope**, **Acceptance Criteria**, **Edge Cases**, **Testing Decisions**, **Verification**, and **Out of Scope**. Prefer existing test seams and record any new seam explicitly. Do not publish a separate tracker spec from this command; the Handoff Artifact below is Role Router's canonical spec.
+
+## 4. Decompose into tickets
+Using `/to-tickets` semantics, break the spec into thin, end-to-end tracer bullets. Each ticket must be independently demonstrable or verifiable and fit in one fresh Builder context. Record genuine blocking edges; do not serialize independent tickets. Use expand-migrate-contract tickets for wide refactors that cannot land green as vertical slices.
+
+Present the proposed tickets and blocking edges to the user. Do not write or register them until the user approves the granularity and dependency graph.
+
+## 5. Write the Handoff Artifact
 The Builder runs in a separate session on a different Engine and sees **only files** — so the spec must be self-contained.
-- **If `.agent-board/` exists:** write each slice as `.agent-board/tasks/TASK-XXX.md` and register it (`node scripts/agent-board.mjs ...` or the repo's board tool).
-- **Otherwise:** write `PLAN.md` at the repo root with one `## TASK-XXX` section per slice. Each section opens with the two metadata lines the scheduler reads, then its own Scope / Acceptance Criteria / Edge Cases / Verification and explicit file paths:
+- **If `.agent-board/` exists:** write each slice as `.agent-board/tasks/TASK-XXX.md` and register it (`node scripts/agent-board.mjs ...` or the repo's board tool). Include all feature-level context needed to understand that slice.
+- **Otherwise:** write `PLAN.md` at the repo root. Start with a level-1 feature spec containing Problem, Solution, and Out of Scope; then add one `## TASK-XXX` section per slice. Each task opens with the two metadata lines the scheduler reads, then its own Scope / Acceptance Criteria / Edge Cases / Testing Decisions / Verification and explicit file paths:
   ```markdown
   ## TASK-003 — Add phone verification
   - status: planned
@@ -33,6 +46,6 @@ The Builder runs in a separate session on a different Engine and sees **only fil
 
 A slice is ready only when a Builder with **no memory of this conversation** could implement it from the file alone.
 
-## 4. Hand back
+## 6. Hand back
 List the task IDs created (with their `depends:` edges) and the exact next command for the Builder, e.g.:
-> Switch to a CCR context (`ccr code`) and run `/build TASK-001` — or `/fan-out TASK-001 TASK-002` if they're independent.
+> Run `role-router run builder TASK-001` — or use `/fan-out TASK-001 TASK-002` if they're independent.

@@ -38,20 +38,27 @@ Roles: **architect** → `/plan` · **builder** → `/build` · **worker** → `
 ## Planning · Architecture / Design
 | Skill | Role | Source | License | Install |
 |---|---|---|---|---|
+| grilling | architect | `mattpocock/skills` | MIT | `npx skills add mattpocock/skills@grilling -g -y` |
 | grill-with-docs | architect | `mattpocock/skills` | MIT | `npx skills add mattpocock/skills@grill-with-docs -g -y` |
 | grill-me | architect | `mattpocock/skills` | MIT | `npx skills add mattpocock/skills@grill-me -g -y` |
+| domain-modeling | architect | `mattpocock/skills` | MIT | `npx skills add mattpocock/skills@domain-modeling -g -y` |
+| wayfinder | architect | `mattpocock/skills` | MIT | `npx skills add mattpocock/skills@wayfinder -g -y` |
+| to-spec | architect | `mattpocock/skills` | MIT | `npx skills add mattpocock/skills@to-spec -g -y` |
+| to-tickets | architect | `mattpocock/skills` | MIT | `npx skills add mattpocock/skills@to-tickets -g -y` |
+| codebase-design | architect | `mattpocock/skills` | MIT | `npx skills add mattpocock/skills@codebase-design -g -y` |
 | improve-codebase-architecture | architect | `mattpocock/skills` | MIT | `npx skills add mattpocock/skills@improve-codebase-architecture -g -y` |
 | prototype | architect | `mattpocock/skills` | MIT | `npx skills add mattpocock/skills@prototype -g -y` |
-| to-prd | architect | `mattpocock/skills` | MIT | `npx skills add mattpocock/skills@to-prd -g -y` |
+| research | architect | `mattpocock/skills` | MIT | `npx skills add mattpocock/skills@research -g -y` |
 | zoom-out | architect | `mattpocock/skills` | MIT | `npx skills add mattpocock/skills@zoom-out -g -y` |
 
 ## Delivery · Workflow / Issue tracking
 | Skill | Role | Source | License | Install |
 |---|---|---|---|---|
-| to-issues | worker | `mattpocock/skills` | MIT | `npx skills add mattpocock/skills@to-issues -g -y` |
+| implement | builder | `mattpocock/skills` | MIT | `npx skills add mattpocock/skills@implement -g -y` |
+| code-review | worker | `mattpocock/skills` | MIT | `npx skills add mattpocock/skills@code-review -g -y` |
 | triage | worker | `mattpocock/skills` | MIT | `npx skills add mattpocock/skills@triage -g -y` |
 | handoff | worker | `mattpocock/skills` | MIT | `npx skills add mattpocock/skills@handoff -g -y` |
-| setup-matt-pocock-skills | worker | `mattpocock/skills` | MIT | `npx skills add mattpocock/skills@setup-matt-pocock-skills -g -y` |
+| setup-matt-pocock-skills | architect | `mattpocock/skills` | MIT | `npx skills add mattpocock/skills@setup-matt-pocock-skills -g -y` |
 
 ## Quality · Testing / Debugging
 | Skill | Role | Source | License | Install |

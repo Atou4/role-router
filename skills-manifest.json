@@ -1,19 +1,24 @@
 {
   "_comment": "Role -> recommended skills. Heavy reasoning skills go to the Architect (Claude follows them best). Builder/Worker skills are tight, checklist-style rule sets a weaker Engine can follow. Projects load only their stack subset (e.g. react-native-skills XOR flutter-*).",
   "architect": {
-    "engine": "claude (Max, Vanilla Context)",
+    "engine": "configured Architect Adapter (Codex subscription recommended)",
     "command": "/plan",
     "skills": [
+      "grilling",
       "grill-with-docs",
+      "domain-modeling",
+      "setup-matt-pocock-skills",
+      "wayfinder",
+      "to-spec",
+      "to-tickets",
+      "codebase-design",
       "improve-codebase-architecture",
-      "to-prd",
-      "to-issues",
       "prototype",
-      "deep-research"
+      "research"
     ]
   },
   "builder": {
-    "engine": "moonshotai/kimi-k2.6 (CCR Context)",
+    "engine": "configured Builder Adapter (Z.AI GLM recommended)",
     "command": "/build",
     "skills": [
       "react-native-skills",
@@ -28,11 +33,10 @@
     "_note": "Load only the stack subset for the repo. RN repos: react-native-skills + supabase*. Flutter repos: flutter-* + supabase*."
   },
   "worker": {
-    "engine": "deepseek/deepseek-v4-flash (CCR Context)",
+    "engine": "configured Worker Adapter (Z.AI GLM recommended)",
     "command": ["/review", "/docs"],
     "skills": [
       "code-review",
-      "simplify",
       "supabase-postgres-best-practices",
       "handoff",
       "caveman"

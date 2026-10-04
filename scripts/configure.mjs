@@ -3,17 +3,22 @@
 /**
  * Role Router interactive configuration CLI
  * Prompts user for their providers, API keys, proposes routing, lets them customize.
- * Outputs: ~/.claude-code-router/config.json + shell instructions
+ * Outputs: ~/.role-router/config.json + shell instructions
  */
 
 import readline from 'readline';
 import fs from 'fs';
 import path from 'path';
+import os from 'os';
 import { fileURLToPath } from 'url';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
-const CATALOG_PATH = path.join(__dirname, '../providers/catalog.json');
-const OUTPUT_PATH = path.expanduser('~/.claude-code-router/config.json');
+const CATALOG_PATH = [
+  process.env.ROLE_ROUTER_PROVIDER_CATALOG,
+  path.join(__dirname, '../providers/catalog.json'),
+  path.join(__dirname, 'providers/catalog.json'),
+].filter(Boolean).find(fs.existsSync);
+const ROLE_OUTPUT_PATH = path.join(os.homedir(), '.role-router', 'config.json');
 
 // ANSI codes for terminal colors
 const colors = {
@@ -62,19 +67,34 @@ console.log(cyan('│                                                      │')
 console.log(cyan('└──────────────────────────────────────────────────────┘'));
 console.log();
 
-// Step 0: Claude Max subscription?
+// Step 0: subscription-backed harnesses
+console.log(bold('Do you have a ChatGPT Plus/Pro plan with Codex access?'));
+console.log(dim('(Codex is launched through the signed-in Codex CLI; no OpenAI API key is used)'));
+console.log();
+
+const hasCodexAnswer = await question('  Use Codex CLI subscription? (y/N): '.trim() + ' ');
+const hasCodex = hasCodexAnswer.toLowerCase().startsWith('y');
+if (hasCodex) {
+  console.log(dim('✓ Architect will use the signed-in Codex CLI'));
+  console.log(dim('  Run `codex login status` if you have not signed in yet.'));
+}
+console.log();
+
+// Step 0b: Claude Max subscription?
 console.log(bold('Do you have a Claude Code Max subscription?'));
-console.log(dim('(Max is recommended for Architect/planning, but not required)'));
+console.log(dim('(Used for Architect only when Codex subscription routing is not selected)'));
 console.log();
 
 const hasMaxAnswer = await question('  Have Claude Code Max? (Y/n): '.trim() + ' ');
 const hasMax = !hasMaxAnswer.toLowerCase().startsWith('n');
 
 console.log();
-if (hasMax) {
+if (hasCodex) {
+  console.log(dim('✓ Architect will use Codex CLI subscription auth'));
+} else if (hasMax) {
   console.log(dim('✓ Architect will run on Max (vanilla context)'));
 } else {
-  console.log(dim('⚠ Architect will route through CCR (your strongest model)'));
+  console.log(dim('⚠ Architect will use your strongest configured OpenCode model'));
 }
 console.log();
 
@@ -83,13 +103,14 @@ console.log(bold('Which plans/providers do you currently have?'));
 if (hasMax) {
   console.log(dim('☑ Claude Code Max    (Architect stays on vanilla)'));
 } else {
-  console.log(dim('☐ Claude Code Max    (not available — Architect uses CCR)'));
+  console.log(dim('☐ Claude Code Max    (not available — Architect uses OpenCode)'));
 }
 console.log();
 
 const providerOptions = [
-  { key: 'openai', name: 'OpenAI Codex / GPT' },
-  { key: 'zhipu', name: 'Zhipu GLM' },
+  { key: 'zai-coding', name: 'Z.AI GLM Coding Plan' },
+  { key: 'zai', name: 'Z.AI General API (pay as you go)' },
+  { key: 'openai', name: 'OpenAI API key (separate from ChatGPT/Codex)' },
   { key: 'openrouter', name: 'OpenRouter API' },
   { key: 'anthropic', name: 'Anthropic API key (paid, for escalation only)' }
 ];
@@ -103,6 +124,11 @@ for (const provider of providerOptions) {
   }
 }
 
+if (selectedProviders.includes('zai-coding') && selectedProviders.includes('zai')) {
+  console.log(yellow('\n⚠ Both Z.AI modes selected; keeping Coding Plan because one key must use one endpoint.'));
+  selectedProviders.splice(selectedProviders.indexOf('zai'), 1);
+}
+
 if (selectedProviders.length === 0) {
   console.log(yellow('\n⚠ No providers selected. At minimum, you need one for Builder and Worker.'));
   console.log(dim('  If you only have Claude Max, you can still use /plan but the build steps need a provider.'));
@@ -113,21 +139,21 @@ if (selectedProviders.length === 0) {
   }
 }
 
-// Step 2: Collect API keys
+// Step 2: Check provider authentication
 console.log();
-console.log(bold('┌─ Collect API keys ───────────────────────────────┐'));
+console.log(bold('┌─ Provider authentication ───────────────────────┐'));
 console.log();
-
-const apiKeys = {};
 
 for (const key of selectedProviders) {
   const provider = catalog.providers[key];
   const envName = provider.api_key_env;
-  const currentValue = process.env[envName] ? dim('(already set in env)') : '';
-  const answer = await question(`${provider.name} key ${currentValue}: `.trim() + ' ');
-  if (answer && !process.env[envName]) {
-    apiKeys[envName] = answer;
-  }
+  const state = process.env[envName] ? green('available in environment') : yellow('not set');
+  console.log(`  ${provider.name}: ${envName} ${state}`);
+}
+if (selectedProviders.some((key) => !process.env[catalog.providers[key].api_key_env])) {
+  console.log();
+  console.log(dim('Missing keys can be configured securely with `opencode auth login`'));
+  console.log(dim('or exported in your shell profile before launching a role.'));
 }
 
 // Step 3: Propose routing
@@ -135,32 +161,26 @@ console.log();
 console.log(bold('┌─ Proposed configuration ───────────────────────────┐'));
 console.log();
 
-const proposedRouting = proposeRouting(selectedProviders, catalog, hasMax);
+const proposedRouting = proposeRouting(selectedProviders, catalog, hasMax, hasCodex);
 
 console.log(dim('Based on what you have, here\'s a sane setup:'));
 console.log();
-console.log('┌─────────────────┬──────────────┬─────────────┐');
-console.log('│ Role            │ Model        │ Provider    │');
-console.log('├─────────────────┼──────────────┼─────────────┤');
-
 for (const [role, entry] of Object.entries(proposedRouting)) {
-  const roleDisplay = role.padEnd(15);
-  const modelDisplay = (entry.model || '(none)').padEnd(12);
-  const providerDisplay = (entry.provider || '').padEnd(11);
-  console.log(`│ ${roleDisplay}│ ${modelDisplay}│ ${providerDisplay}│`);
+  console.log(`  ${role.padEnd(12)} -> ${(entry.model || '(none)').padEnd(20)} ${entry.provider || ''}`);
 }
-
-console.log('└─────────────────┴──────────────┴─────────────┘');
 console.log();
 
 // Show costs summary
 console.log(dim('Your costs:'));
-console.log(dim('  • Architect uses your Max quota (free at margin)'));
+console.log(dim(`  • Architect uses ${proposedRouting.Architect.provider || 'no configured engine'}`));
 if (proposedRouting.Builder.model) {
   console.log(dim(`  • Builder hits ${proposedRouting.Builder.provider}`));
 }
 if (proposedRouting.Worker.model) {
-  console.log(dim(`  • Worker + Escalation hit ${proposedRouting.Worker.provider}`));
+  console.log(dim(`  • Worker hits ${proposedRouting.Worker.provider}`));
+}
+if (proposedRouting.Escalation.model) {
+  console.log(dim(`  • Escalation uses ${proposedRouting.Escalation.provider}`));
 }
 console.log();
 
@@ -172,48 +192,38 @@ if (customize === 'c') {
   finalRouting = await customizeRouting(proposedRouting, selectedProviders, catalog);
 }
 
-// Step 4: Generate CCR config
+// Step 4: Generate role config
 console.log();
 console.log(bold('┌─ Generating configuration ────────────────────────┐'));
 console.log();
 
-const config = generateCCRConfig(finalRouting, selectedProviders, apiKeys, catalog);
+const roleConfig = generateRoleConfig(finalRouting, selectedProviders, catalog, { hasCodex, hasMax });
 
-// Ensure directory exists
-const configDir = path.dirname(OUTPUT_PATH);
-if (!fs.existsSync(configDir)) {
-  fs.mkdirSync(configDir, { recursive: true });
-}
-
-fs.writeFileSync(OUTPUT_PATH, JSON.stringify(config, null, 2));
-console.log(green('✓ Config written to ~/.claude-code-router/config.json'));
+fs.mkdirSync(path.dirname(ROLE_OUTPUT_PATH), { recursive: true });
+fs.writeFileSync(ROLE_OUTPUT_PATH, JSON.stringify(roleConfig, null, 2));
+console.log(green('✓ Role bindings written to ~/.role-router/config.json'));
 console.log();
 
 // Show shell instructions
 console.log(bold('┌─ Shell exports ──────────────────────────────────┐'));
 console.log();
 
-if (Object.keys(apiKeys).length > 0) {
-  console.log(dim('Add these to your ~/.zshrc or ~/.bash_profile:'));
-  console.log();
-  for (const [env, key] of Object.entries(apiKeys)) {
-    console.log(`  export ${env}="${key}"`);
-  }
-  console.log();
-  console.log(dim('Then run:  source ~/.zshrc  # or restart your shell'));
+const missingEnvs = [...new Set(selectedProviders
+  .map((key) => catalog.providers[key].api_key_env)
+  .filter((envName) => !process.env[envName]))];
+if (missingEnvs.length > 0) {
+  console.log(dim('Authenticate with `opencode auth login`, or export:'));
+  for (const envName of missingEnvs) console.log(`  export ${envName}="..."`);
 } else {
-  console.log(dim('All keys are already in your environment. Good to go!'));
+  console.log(dim('All selected provider keys are available in the environment.'));
 }
 console.log();
 
 console.log(bold('┌─ Next steps ────────────────────────────────────┐'));
 console.log();
-console.log(dim('  After setting the exports above, run:'));
-console.log(green('    ccr restart'));
-console.log();
-console.log(dim('  Then start using Role Router:'));
-console.log(dim('    claude            # → /plan <feature>    (Max)'));
-console.log(dim('    ccr code          # → /build /review /docs'));
+console.log(dim('  Start using Role Router:'));
+console.log(dim('    role-router run architect "<feature>"'));
+console.log(dim('    role-router run builder TASK-001'));
 console.log();
 console.log(dim('  See README.md for the full guide.'));
 console.log();
@@ -222,7 +232,7 @@ console.log();
 
 rl.close();
 
-function proposeRouting(providers, catalog, hasMax = true) {
+function proposeRouting(providers, catalog, hasMax = true, hasCodex = false) {
   const routing = {
     Architect: { model: null, provider: null },
     Builder: { model: null, provider: null },
@@ -231,33 +241,36 @@ function proposeRouting(providers, catalog, hasMax = true) {
   };
 
   // Architect routing
-  if (hasMax) {
+  if (hasCodex) {
+    routing.Architect = { model: 'Codex subscription', provider: 'Codex CLI' };
+  } else if (hasMax) {
     routing.Architect = { model: 'Claude Opus (Max)', provider: 'Max (vanilla)' };
   } else {
     // No Max: route Architect through strongest available model
     if (providers.includes('openai')) {
       const o1 = catalog.providers.openai.models.find(m => m.id === 'o1');
       if (o1) {
-        routing.Architect = { model: 'o1', provider: 'OpenAI (CCR)' };
+        routing.Architect = { model: 'o1', provider: catalog.providers.openai.name };
       } else {
         // Fall back to o3-mini if o1 not available
-        routing.Architect = { model: 'o3-mini', provider: 'OpenAI (CCR)' };
+        routing.Architect = { model: 'o3-mini', provider: catalog.providers.openai.name };
       }
     }
     else if (providers.includes('openrouter')) {
       const claude = catalog.providers.openrouter.models.find(m => m.id === 'anthropic/claude-opus-4.8');
       if (claude) {
-        routing.Architect = { model: 'claude-opus-4.8', provider: 'OpenRouter (CCR)' };
+        routing.Architect = { model: claude.id, provider: catalog.providers.openrouter.name };
       } else {
         // Fall back to GLM-5.2
         const glm = catalog.providers.openrouter.models.find(m => m.id === 'z-ai/glm-5.2');
         if (glm) {
-          routing.Architect = { model: 'glm-5.2', provider: 'OpenRouter (CCR)' };
+          routing.Architect = { model: glm.id, provider: catalog.providers.openrouter.name };
         }
       }
     }
-    else if (providers.includes('zhipu')) {
-      routing.Architect = { model: 'glm-5.2', provider: 'Zhipu (CCR)' };
+    else if (providers.includes('zai-coding') || providers.includes('zai')) {
+      const key = providers.includes('zai-coding') ? 'zai-coding' : 'zai';
+      routing.Architect = { model: 'glm-5.2', provider: catalog.providers[key].name };
     }
     // If still no Architect model, set to first available model
     if (!routing.Architect.model && providers.length > 0) {
@@ -265,7 +278,7 @@ function proposeRouting(providers, catalog, hasMax = true) {
       if (firstProvider && firstProvider.models.length > 0) {
         routing.Architect = {
           model: firstProvider.models[0].id,
-          provider: `${firstProvider.name} (CCR)`
+          provider: firstProvider.name
         };
       }
     }
@@ -278,18 +291,21 @@ function proposeRouting(providers, catalog, hasMax = true) {
       routing.Builder = { model: 'o3-mini', provider: 'OpenAI' };
     }
   }
-  // Fall back to Zhipu GLM-5.2
-  else if (providers.includes('zhipu')) {
-    const glm = catalog.providers.zhipu.models.find(m => m.id === 'glm-5.2');
+  // Prefer the efficient daily-development model for Z.AI.
+  else if (providers.includes('zai-coding') || providers.includes('zai')) {
+    const key = providers.includes('zai-coding') ? 'zai-coding' : 'zai';
+    const glm = catalog.providers[key].models.find(m => m.id === 'glm-4.7')
+      || catalog.providers[key].models.find(m => m.id === 'glm-5.2');
     if (glm) {
-      routing.Builder = { model: 'glm-5.2', provider: 'Zhipu' };
+      routing.Builder = { model: glm.id, provider: catalog.providers[key].name };
     }
   }
   // Fall back to OpenRouter Kimi
   else if (providers.includes('openrouter')) {
-    const kimi = catalog.providers.openrouter.models.find(m => m.id === 'moonshotai/kimi-k2.6');
+    const kimi = catalog.providers.openrouter.models.find(m => m.id === 'moonshotai/kimi-k2.7-code')
+      || catalog.providers.openrouter.models.find(m => m.id === 'moonshotai/kimi-k2.6');
     if (kimi) {
-      routing.Builder = { model: 'kimi-k2.6', provider: 'OpenRouter' };
+      routing.Builder = { model: kimi.id, provider: catalog.providers.openrouter.name };
     }
   }
 
@@ -297,26 +313,31 @@ function proposeRouting(providers, catalog, hasMax = true) {
   if (providers.includes('openrouter')) {
     const flash = catalog.providers.openrouter.models.find(m => m.id === 'deepseek/deepseek-v4-flash');
     if (flash) {
-      routing.Worker = { model: 'deepseek-v4-flash', provider: 'OpenRouter' };
+      routing.Worker = { model: flash.id, provider: catalog.providers.openrouter.name };
     }
   }
-  else if (providers.includes('zhipu')) {
-    const glmFlash = catalog.providers.zhipu.models.find(m => m.id === 'glm-4-flash');
+  else if (providers.includes('zai-coding') || providers.includes('zai')) {
+    const key = providers.includes('zai-coding') ? 'zai-coding' : 'zai';
+    const glmFlash = catalog.providers[key].models.find(m => m.id === 'glm-4.7');
     if (glmFlash) {
-      routing.Worker = { model: 'glm-4-flash', provider: 'Zhipu' };
+      routing.Worker = { model: glmFlash.id, provider: catalog.providers[key].name };
     }
   }
 
   // Escalation defaults to the strongest available model
-  if (providers.includes('anthropic')) {
+  if (providers.includes('zai-coding') || providers.includes('zai')) {
+    const key = providers.includes('zai-coding') ? 'zai-coding' : 'zai';
+    routing.Escalation = { model: 'glm-5.2', provider: catalog.providers[key].name };
+  }
+  else if (hasCodex) {
+    routing.Escalation = { model: 'Codex subscription', provider: 'Codex CLI' };
+  }
+  else if (providers.includes('anthropic')) {
     routing.Escalation = { model: 'claude-opus-4.8', provider: 'Anthropic (paid)' };
   }
   else if (providers.includes('openrouter') && routing.Builder.provider === 'OpenRouter') {
     // If on OpenRouter, use Claude Opus for escalation
     routing.Escalation = { model: 'claude-opus-4.8', provider: 'OpenRouter' };
-  }
-  else if (providers.includes('zhipu')) {
-    routing.Escalation = { model: 'glm-5.2', provider: 'Zhipu' };
   }
 
   return routing;
@@ -385,95 +406,53 @@ async function customizeRouting(proposed, providers, catalog) {
   return routing;
 }
 
-function generateCCRConfig(routing, providers, apiKeys, catalog) {
-  const configProviders = [];
-  const modelSet = new Set();
-
-  // Map routing to CCR provider entries
-  for (const key of providers) {
-    const provider = catalog.providers[key];
-    const models = [];
-
-    // Add models that are used in routing
-    for (const [role, entry] of Object.entries(routing)) {
-      if (role === 'Architect') continue; // Never goes through CCR
-      if (entry.provider === provider.name && entry.model) {
-        // Find the model ID in catalog
-        const modelEntry = provider.models.find(m => {
-          const shortId = entry.model.includes('/') ? entry.model.split('/').pop() : entry.model;
-          return m.id === entry.model || m.id.endsWith(shortId);
-        });
-        if (modelEntry && !modelSet.has(modelEntry.id)) {
-          models.push(modelEntry.id);
-          modelSet.add(modelEntry.id);
-        }
-      }
-    }
-
-    // Also add all models from the catalog for flexibility
-    for (const model of provider.models) {
-      if (!modelSet.has(model.id)) {
-        models.push(model.id);
-        modelSet.add(model.id);
-      }
-    }
-
-    configProviders.push({
-      name: key,
-      api_base_url: provider.api_base_url,
-      api_key: `\${${provider.api_key_env}}`,
-      models,
-      transformer: key === 'openrouter' ? { use: ['openrouter'] } : undefined
-    });
-  }
-
-  // Build Router block
-  const router = {
-    default: null,
-    background: null,
-    think: null,
-    longContext: null,
-    longContextThreshold: 60000
+function generateRoleConfig(routing, providers, catalog, subscriptions) {
+  const opencodeBinding = (entry) => {
+    if (!entry?.model) return { adapter: 'unconfigured' };
+    const match = findProviderForModel(entry.model, providers, catalog, entry.provider);
+    if (!match) return { adapter: 'unconfigured' };
+    const providerIds = {
+      'zai-coding': 'zai-coding-plan',
+      zai: 'zai',
+      openrouter: 'openrouter',
+      openai: 'openai',
+      anthropic: 'anthropic'
+    };
+    const provider = providerIds[match.provider] || match.provider;
+    return {
+      adapter: 'opencode',
+      provider,
+      model: `${provider}/${match.modelId}`,
+      keyEnv: catalog.providers[match.provider].api_key_env
+    };
   };
 
-  // Map Builder to default
-  if (routing.Builder.model) {
-    const builderEntry = findProviderForModel(routing.Builder.model, providers, catalog);
-    if (builderEntry) {
-      router.default = `${builderEntry.provider},${builderEntry.modelId}`;
-    }
-  }
+  const architect = subscriptions.hasCodex
+    ? { adapter: 'codex', mode: 'interactive' }
+    : subscriptions.hasMax
+      ? { adapter: 'claude', mode: 'interactive' }
+      : opencodeBinding(routing.Architect);
 
-  // Map Worker to background
-  if (routing.Worker.model) {
-    const workerEntry = findProviderForModel(routing.Worker.model, providers, catalog);
-    if (workerEntry) {
-      router.background = `${workerEntry.provider},${workerEntry.modelId}`;
-    }
-  }
-
-  // Map Escalation to longContext
-  if (routing.Escalation.model) {
-    const escalationEntry = findProviderForModel(routing.Escalation.model, providers, catalog);
-    if (escalationEntry) {
-      router.longContext = `${escalationEntry.provider},${escalationEntry.modelId}`;
-    }
-  }
-
-  // Fallback think to default
-  if (router.default) {
-    router.think = router.default;
-  }
+  const escalation = opencodeBinding(routing.Escalation);
 
   return {
-    _comment: "Role Router CCR config — generated by scripts/configure.mjs. Architect runs in vanilla context, never through this file.",
-    Providers: configProviders,
-    Router: router
+    version: 1,
+    _comment: 'Role bindings. Codex uses subscription auth; OpenCode uses provider API keys or its auth store.',
+    roles: {
+      architect,
+      builder: opencodeBinding(routing.Builder),
+      worker: opencodeBinding(routing.Worker),
+      escalation
+    }
   };
 }
 
-function findProviderForModel(modelId, providers, catalog) {
-  for (const key of providers) {
+function findProviderForModel(modelId, providers, catalog, providerName = null) {
+  const orderedProviders = providerName
+    ? [...providers.filter((key) => catalog.providers[key].name === providerName),
+       ...providers.filter((key) => catalog.providers[key].name !== providerName)]
+    : providers;
+  for (const key of orderedProviders) {
     const provider = catalog.providers[key];
     const model = provider.models.find(m => {
       const shortId = modelId.includes('/') ? modelId.split('/').pop() : modelId;

@@ -1,3 +1,5 @@
 node_modules/
 *.bak.*
 .DS_Store
+.role-router/runs/
+.role-router/worktrees/

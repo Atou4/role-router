@@ -40,7 +40,7 @@ const PLAN = path.join(repoRoot(), 'PLAN.md');
 
 function readPlan() {
   if (!existsSync(PLAN)) {
-    console.error(`No PLAN.md at ${PLAN}. Run /plan first (Architect, Vanilla Context).`);
+    console.error(`No PLAN.md at ${PLAN}. Run the Architect role first.`);
     process.exit(1);
   }
   return readFileSync(PLAN, 'utf8');

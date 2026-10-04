@@ -1,12 +1,12 @@
 ---
-description: WORKER role — review the current diff against conventions and skills. Run in a CCR context on the cheap Worker Engine.
+description: WORKER role — review the current diff against conventions and skills through the configured Worker adapter.
 argument-hint: TASK-XXX (optional)
-allowed-tools: Bash, Read, Glob, Grep, Skill
+allowed-tools: Bash, Read, Glob, Grep, Skill, Agent
 ---
 
 # /review — Worker
 
-> **Context check:** Run in a **CCR Context**. For the cheapest cost, switch to the Worker Engine first: `/model openrouter,deepseek/deepseek-v4-flash`. This is read/critique work — a cheap Engine handles it well.
+> **Engine check:** Prefer `role-router run worker $ARGUMENTS`; it launches the configured Worker Adapter. This is read/critique work, so bind it to your cheaper engine.
 
 You are the **Worker** doing review. Review the diff, do not change code.
 
@@ -14,7 +14,7 @@ You are the **Worker** doing review. Review the diff, do not change code.
 `git diff` against the base branch (default branch). If `$ARGUMENTS` is given, also read its spec (`.agent-board/tasks/$ARGUMENTS.md` or the `PLAN.md` section) to check the diff actually satisfies the Acceptance Criteria.
 
 ## 2. Review
-- Invoke the repo's review skills (`code-review`, `simplify`, and any stack rule skills like `supabase-postgres-best-practices`).
+- Invoke the repo's review skills (`code-review` and any stack rule skills like `supabase-postgres-best-practices`). Run its Standards and Spec axes independently, including the refactoring-smell baseline, then map any hard failure to the normalized status below.
 - **Requirement coverage, not just a diff scan:** go through every Acceptance Criterion / REQ-ID in the spec and confirm the diff actually implements it. A criterion ticked-but-unverified is a Must-fix.
 - Also check: convention violations, obvious correctness or security issues.
 

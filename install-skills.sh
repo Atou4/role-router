@@ -20,6 +20,23 @@ command -v node >/dev/null || { echo "node is required."; exit 1; }
 
 bold() { printf '\033[1m%s\033[0m\n' "$1"; }
 
+warn_obsolete() {
+  local found=()
+  local root name
+  for root in "$HOME/.claude/skills" "$HOME/.agents/skills"; do
+    for name in to-prd to-issues to-plan; do
+      [[ -d "$root/$name" ]] && found+=("$root/$name")
+    done
+  done
+  if (( ${#found[@]} )); then
+    printf '\033[33mObsolete v1 skill directories detected (the skills installer does not remove renames):\033[0m\n'
+    printf '  %s\n' "${found[@]}"
+    printf 'Remove these stale copies after installing to-spec and to-tickets.\n\n'
+  fi
+}
+
+warn_obsolete
+
 # Emit "domain<TAB>name<TAB>install" rows, filtered by selector (domain, all, or role:X).
 rows() {
   node -e '

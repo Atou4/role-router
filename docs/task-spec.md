@@ -19,12 +19,16 @@ Two small conventions let `/next` and `/fan-out` schedule work deterministically
 ### Acceptance Criteria
 - [ ] REQ-1 …
 ### Edge Cases
+### Testing Decisions
+- Seam: …
+- Behavior: …
 ### Verification
 ```
 
 - The heading id must match `TASK-\S+`. Title after a `—`, `-`, or `:` is optional.
 - `status:` and `depends:` are read only **above** the first `###` subsection.
 - `depends:` is a comma/space list of task ids; empty = independent.
+- `Testing Decisions` records the user-approved public seams and observable behavior. Builders do not invent lower-level seams in a fresh context.
 
 ## The status lifecycle
 

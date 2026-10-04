@@ -1,0 +1,9 @@
+{
+  "version": 1,
+  "roles": {
+    "architect": { "adapter": "codex", "mode": "interactive" },
+    "builder": { "adapter": "opencode", "provider": "openrouter", "model": "openrouter/moonshotai/kimi-k2.7-code", "keyEnv": "OPENROUTER_API_KEY" },
+    "worker": { "adapter": "opencode", "provider": "openrouter", "model": "openrouter/deepseek/deepseek-v4-flash", "keyEnv": "OPENROUTER_API_KEY" },
+    "escalation": { "adapter": "opencode", "provider": "openrouter", "model": "openrouter/deepseek/deepseek-v4-pro", "keyEnv": "OPENROUTER_API_KEY" }
+  }
+}

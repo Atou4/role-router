@@ -16,9 +16,9 @@
 const ROLES = [
   { role: 'Architect', cmd: '/plan',   engine: 'Claude / Max — VANILLA context',
     rx: /\b(plan|design|architect|architecture|rfc|prd|spec|decompose|break down|trade[- ]?off|migration|strategy|approach|should we|evaluate)\b/i },
-  { role: 'Builder',   cmd: '/build',  engine: 'Kimi — CCR context',
+  { role: 'Builder',   cmd: '/build',  engine: 'configured OpenCode model',
     rx: /\b(build|implement|add|create|write|code|feature|component|refactor|fix|bug|endpoint|api|function|hook|screen|migration script)\b/i },
-  { role: 'Worker',    cmd: '/review', engine: 'DeepSeek — CCR context',
+  { role: 'Worker',    cmd: '/review', engine: 'configured OpenCode model',
     rx: /\b(review|audit|check|lint|docs?|document|changelog|release note|summar(y|ize)|pr body|postmortem|report|notes)\b/i },
 ];
 

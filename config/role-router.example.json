@@ -1,0 +1,9 @@
+{
+  "version": 1,
+  "roles": {
+    "architect": { "adapter": "codex", "mode": "interactive" },
+    "builder": { "adapter": "opencode", "provider": "zai-coding-plan", "model": "zai-coding-plan/glm-4.7", "keyEnv": "ZAI_API_KEY" },
+    "worker": { "adapter": "opencode", "provider": "zai-coding-plan", "model": "zai-coding-plan/glm-4.7", "keyEnv": "ZAI_API_KEY" },
+    "escalation": { "adapter": "opencode", "provider": "zai-coding-plan", "model": "zai-coding-plan/glm-5.2", "keyEnv": "ZAI_API_KEY" }
+  }
+}

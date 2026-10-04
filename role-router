@@ -1,0 +1,23 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+
+case "${1:-}" in
+  run)
+    shift
+    exec node "$ROOT/scripts/run-role.mjs" "$@"
+    ;;
+  chat)
+    shift
+    exec node "$ROOT/scripts/run-role.mjs" "$@" --raw
+    ;;
+  configure)
+    shift
+    exec node "$ROOT/scripts/configure.mjs" "$@"
+    ;;
+  *)
+    echo "Usage: role-router {configure|run <role> [argument]|chat <role> <message>}" >&2
+    exit 1
+    ;;
+esac

@@ -1,6 +1,6 @@
 {
-  "version": "1.0.0",
-  "lastUpdated": "2025-01-04",
+  "version": "2.0.0",
+  "lastUpdated": "2026-07-15",
   "providers": {
     "openrouter": {
       "name": "OpenRouter",
@@ -123,32 +123,68 @@
         }
       ]
     },
-    "zhipu": {
-      "name": "Zhipu AI (GLM direct)",
-      "api_base_url": "https://open.bigmodel.cn/api/paas/v4/chat/completions",
-      "api_key_env": "ZHIPU_API_KEY",
-      "description": "Direct Zhipu GLM API access",
+    "zai": {
+      "name": "Z.AI General API",
+      "api_base_url": "https://api.z.ai/api/paas/v4/chat/completions",
+      "api_key_env": "ZAI_API_KEY",
+      "description": "Z.AI pay-as-you-go API using the OpenAI-compatible endpoint",
       "models": [
         {
           "id": "glm-5.2",
           "name": "GLM-5.2",
           "role_hint": "strong_coder",
-          "context": 1048576,
-          "pricing_per_m": { "prompt": 0.91, "completion": 2.86 }
+          "context": 1000000,
+          "pricing_per_m": null
+        },
+        {
+          "id": "glm-5.1",
+          "name": "GLM-5.1",
+          "role_hint": "strong_coder",
+          "context": 200000,
+          "pricing_per_m": null
         },
         {
           "id": "glm-5-turbo",
           "name": "GLM-5 Turbo",
           "role_hint": "coder",
           "context": 262144,
-          "pricing_per_m": { "prompt": 1.2, "completion": 4.0 }
+          "pricing_per_m": null
         },
         {
-          "id": "glm-4-flash",
-          "name": "GLM-4 Flash",
+          "id": "glm-4.5-air",
+          "name": "GLM-4.5 Air",
           "role_hint": "cheap_worker",
           "context": 128000,
-          "pricing_per_m": { "prompt": 0.10, "completion": 0.50 }
+          "pricing_per_m": null
+        }
+      ]
+    },
+    "zai-coding": {
+      "name": "Z.AI GLM Coding Plan",
+      "api_base_url": "https://api.z.ai/api/coding/paas/v4/chat/completions",
+      "api_key_env": "ZAI_API_KEY",
+      "description": "Dedicated endpoint for Z.AI GLM Coding Plan subscriptions",
+      "models": [
+        {
+          "id": "glm-5.2",
+          "name": "GLM-5.2",
+          "role_hint": "strong_coder",
+          "context": 1000000,
+          "pricing_per_m": null
+        },
+        {
+          "id": "glm-5-turbo",
+          "name": "GLM-5 Turbo",
+          "role_hint": "coder",
+          "context": 200000,
+          "pricing_per_m": null
+        },
+        {
+          "id": "glm-4.7",
+          "name": "GLM-4.7",
+          "role_hint": "coder",
+          "context": 200000,
+          "pricing_per_m": null
         }
       ]
     },

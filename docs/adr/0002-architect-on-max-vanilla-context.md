@@ -1,15 +1,17 @@
-# Architect work runs in the Vanilla Context, never through CCR
+# Architect subscription auth stays in its native CLI
 
-Architect/`/plan` work runs only in a normal Claude Code session (the **Vanilla Context**), authenticated by the Max subscription. Builder and Worker work runs in a **CCR Context** (`ccr code`) that routes to OpenRouter Engines. This is why the workflow has two ways to launch Claude Code.
+> **Status:** Superseded in part by ADR-0005. Vanilla Claude Max remains supported, but Codex CLI is also a subscription-backed Architect Adapter.
 
-The reason is non-obvious and load-bearing: CCR intercepts *all* Claude Code traffic and authenticates providers with API keys, not the Max OAuth token. If `/plan` ran inside a CCR Context, the highest-value Architect calls would be billed to the paid Anthropic API *and* would not draw down the Max quota we already pay for — defeating both goals (protect quota, cut dollars) on the exact work we most wanted Max to cover. Keeping planning in the Vanilla Context is the only way to spend Max quota on Architect work.
+Architect work that uses a subscription runs through that product's native authenticated CLI. API-backed roles run through OpenCode.
+
+The reason is load-bearing: subscription authentication and API keys are different products. Keeping planning in the native Codex or Claude CLI preserves the subscription entitlement, while OpenCode uses explicit provider credentials for API-backed work.
 
 ## Considered Options
 
-- **Everything through CCR (one launch method).** Rejected: simplest UX, but pays API dollars for Architect calls and wastes Max quota.
-- **CCR Anthropic-provider with Max OAuth passthrough.** Rejected for now: CCR isn't built for subscription auth; fragile and hard to teach others. Revisit only if CCR adds first-class Max support.
+- **Everything through one API harness.** Rejected: it would turn subscription-backed planning into separately billed API traffic.
+- **Copy subscription credentials between harnesses.** Rejected: unsupported and unsafe.
 
 ## Consequences
 
-- Users launch two ways: plain `claude` for `/plan`, `ccr code` for `/build` `/review` `/docs`.
+- `run-role.mjs` selects the correct native Codex, Claude, or OpenCode Adapter from the role binding.
 - The plan cannot be passed in-context across the boundary; it is carried by the **Handoff Artifact** (board task spec + diff + `board.json`) — see ADR-0003.

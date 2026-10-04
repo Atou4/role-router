@@ -1,5 +1,7 @@
 # Role Router — Handoff Document
 
+> **Historical snapshot:** Everything below describes the retired CCR architecture and is retained only for provenance. Current behavior is documented in the root README and ADR-0005: Codex subscription roles launch through Codex CLI, while API-backed roles launch through OpenCode.
+
 **Session:** 2025-01-04 to 2025-07-05  
 **Repo:** `Atou4/role-router` (public, `/Users/macbookpro/Documents/role-router`)  
 **Focus:** Interactive CLI installer, no-Max support, multi-provider routing

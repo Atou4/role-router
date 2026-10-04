@@ -1,12 +1,12 @@
 ---
-description: WORKER role — generate docs, PR body, changelog, and update task/board status. Run in a CCR context on the cheap Worker Engine.
+description: WORKER role — generate docs, PR body, changelog, and update task/board status using the configured Worker Engine.
 argument-hint: TASK-XXX (optional)
 allowed-tools: Bash, Read, Edit, Write, Glob, Grep, Skill
 ---
 
 # /docs — Worker
 
-> **Context check:** Run in a **CCR Context**. Switch to the Worker Engine first for the cheapest cost: `/model openrouter,deepseek/deepseek-v4-flash`. Loading the `caveman` skill trims output tokens further.
+> **Engine check:** Prefer `role-router run docs $ARGUMENTS`; it uses the configured Worker adapter. Loading the `caveman` skill trims output tokens further.
 
 You are the **Worker** doing documentation and reporting. This is administrative writing, not engineering decisions.
 

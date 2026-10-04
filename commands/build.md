@@ -1,12 +1,12 @@
 ---
-description: BUILDER role — implement one task from its spec, run quality gates, self-review. Run in a CCR context (routes to the Builder Engine).
+description: BUILDER role — implement one task from its spec, run quality gates, self-review. Launch through the configured Builder adapter.
 argument-hint: TASK-XXX
 allowed-tools: Bash, Read, Edit, Write, Glob, Grep, Skill
 ---
 
 # /build — Builder
 
-> **Context check:** Run this in a **CCR Context** (`ccr code`), where `Router.default` routes to the Builder Engine (`moonshotai/kimi-k2.6`). Do NOT grill or re-plan here — that is Architect work. Implement what the spec says.
+> **Engine check:** Prefer `role-router run builder $ARGUMENTS`. The adapter selects Codex, OpenCode, or vanilla Claude from `~/.role-router/config.json`. Do NOT grill or re-plan here — that is Architect work.
 
 You are the **Builder**. Implement `$ARGUMENTS` from its Handoff Artifact. Work the steps in order; **stop and report** if a precondition fails.
 
@@ -20,6 +20,8 @@ You are the **Builder**. Implement `$ARGUMENTS` from its Handoff Artifact. Work 
 ## 1. Build
 Implement the spec's Scope. Follow the repo's existing patterns and file structure. Do not expand scope beyond the spec — if the spec is wrong or incomplete, stop and escalate (step 4), don't redesign.
 
+Use `/tdd` where the spec's Testing Decisions define a pre-agreed seam: one failing behavior test, the minimum implementation to pass it, then the next vertical slice. Do not invent or ask the user to approve a new test seam in this Builder context; a missing seam is a spec gap to escalate. Run focused tests and typechecking regularly, then the full suite once at the end. Leave refactoring findings for the independent `/review` gate; if review returns `gaps_found`, fix them in the next `/build` pass.
+
 ## 2. Convention self-review
 Invoke the repo's Builder skills from `skills-manifest.json` (e.g. `react-native-skills`, `supabase-postgres-best-practices`) and check the diff against them. Fix what they surface.
 
@@ -32,7 +34,7 @@ Both must pass.
 
 ## 4. Escalation rule
 If a gate fails and you cannot make it pass within **two** focused attempts, **STOP**. Do not thrash. Write a short blocker note into the spec file (what failed, what you tried), leave the status `building` (do **not** advance it to `review`), and report:
-> Escalating $ARGUMENTS to the Architect. Re-run in a **Vanilla Context** (plain `claude`, Claude/Max) to resolve, or `/model openrouter,anthropic/claude-opus-4.8` if you accept the API cost.
+> Escalating $ARGUMENTS. Run `role-router run escalation $ARGUMENTS`; the configured Escalation Adapter determines its authentication and billing.
 
 This caps the rework tax of a cheap Engine (ADR-0003).
 
