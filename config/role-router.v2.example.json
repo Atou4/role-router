@@ -15,7 +15,7 @@
   "roles": {
     "architect":  { "chain": ["codex-top", "claude-top", "codex-lite", "claude-mid"], "onTierDrop": "ask" },
     "builder":    { "chain": ["claude-mid", "codex-lite", "glm"], "onTierDrop": "auto" },
-    "worker":     { "chain": ["codex-lite", "claude-mid", "glm"], "onTierDrop": "auto", "avoidBuilderAccount": true },
+    "worker":     { "chain": ["codex-lite", "claude-mid", "glm"], "onTierDrop": "auto", "avoidBuilderAccount": true, "onSameAccountReview": "ask" },
     "escalation": { "chain": ["claude-top", "codex-top"], "onTierDrop": "ask" }
   },
   "defaults": { "cooldownMinutes": 60, "transientRetries": 2 }

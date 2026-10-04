@@ -105,12 +105,15 @@ Arena runners were not available in this session, so the two candidates were dra
 - **C — Delegate fallback to each harness** (`claude --fallback-model`, OpenCode provider fallbacks): zero code, but cannot cross vendors, shares no ledger, and Claude's flag covers overload rather than plan limits.
 - **D — ACP via acpx as the only agent layer:** one event schema, but ACP's `stopReason` has no usage-limit value, Claude and Codex need third-party wrappers, and subscription auth through those wrappers is unverified. Kept as a future `lib/agents/acp.mjs`.
 
+## Decisions from review
+
+- **Model ids are opaque.** Profiles pass `model` to the agent untouched, so any family (GPT-6, 6.1, Claude, GLM, ...) works without a Role Router release. An unknown id surfaces as the agent's own error, classified `crashed`.
+- **A builder that exhausts its whole chain leaves its worktree as is.** The task stays `building`; the next Builder run resumes from `handoff.md`.
+- **Review on the Builder's account asks first** (`onSameAccountReview: "ask"`). Headless, it returns `needs_choice` instead of reviewing silently.
+
 ## Open questions and risks
 
-- Codex model ids (`gpt-6-sol`, `gpt-6-luna`) and Claude aliases (`opus`, `sonnet`) — confirm the exact strings each CLI accepts on your accounts?
-- Should a builder that exhausts its whole chain mid-task leave the worktree as is (current design) or stash and reset it?
-- Is "move builder's account to the end" enough for review diversity, or should same-account review require confirmation?
-- Real limit output has not been captured yet; first implementation step should record genuine fixtures the next time each account hits a limit.
+- Real limit output has not been captured yet; the first implementation step records genuine fixtures the next time each account hits a limit.
 
 ## Next implementation step
 
