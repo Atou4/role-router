@@ -68,7 +68,7 @@ You keep one workflow; the models behind it are config you can swap in a month w
 | 🔨 **Builder** | implement, test, refactor | `/build` | Z.AI `glm-4.7` via OpenCode | Z.AI plan/API |
 | 🧹 **Worker** | review, docs, PR bodies, status | `/review` `/docs` | Z.AI `glm-4.7` via OpenCode | Z.AI plan/API |
 
-> An **Engine** is the concrete model bound to a Role right now. Engines change; Roles don't. ([CONTEXT.md](CONTEXT.md) is the full glossary.)
+> An **Engine** is the concrete model bound to a Role right now. Engines change; Roles don't. ([GLOSSARY.md](GLOSSARY.md) is the full glossary.)
 
 ## Prerequisites
 
@@ -337,24 +337,28 @@ OpenRouter models use the same adapter. For example, Kimi for building and DeepS
 
 This is a binding change only; the `/plan`, `/build`, `/review`, `/docs`, and fan-out workflow stays the same.
 
-## Skill catalog
+## Skills
 
-[`catalog/`](catalog/) classifies 32 recommended agent skills **by domain** (mobile RN, Flutter, web/UI-UX, backend/data, planning, delivery, quality, meta) and maps each to a Role. We don't vendor skill bodies — each points to its **original source** + install command, so skills stay current with upstream and there's no redistribution-license risk.
+Each role run is **handed its skills by dispatch**, not left to guess. [`skills-manifest.json`](skills-manifest.json) lists per Role a few core skills, stack rules, and optional extras; dispatch detects the repo's stack (Expo/React Native, Flutter, Supabase, Firebase, iOS), keeps only skills the target agent can actually read, caps the set at 6, and appends their `SKILL.md` paths to the prompt. Paths work the same on Claude Code, Codex and OpenCode.
+
+| Role | Core | Plus |
+|---|---|---|
+| Architect | `grilling`, `domain-modeling`, `codebase-design` | `prototype`, `research`, `why` |
+| Builder | `tdd`, `diagnosing-bugs` | stack rules |
+| Review | `code-review` | stack rules |
+| Docs | `pr` | |
+
+Rules: a role only gets skills the model is allowed to load. User-only skills (`wayfinder`, `blast-radius`, `interrogate`, `to-spec`, `to-tickets`, ...) are never called by a role; the role prompt tells *you* when to run them.
+
+[`catalog/`](catalog/README.md) lists every skill this workflow uses with its upstream source; it is generated from [`catalog/skills.json`](catalog/skills.json).
 
 ```bash
-./install-skills.sh                 # list domains
-./install-skills.sh mobile-flutter  # install one domain from source
-./install-skills.sh role:architect  # install all Architect-role skills
-./install-skills.sh all             # everything with a remote source
+role-router skills doctor              # per agent: missing, user-only, obsolete, diverged copies, list budget
+role-router skills install all         # or: architect | builder | review | docs | human | <group>
+role-router skills readme              # regenerate catalog/README.md
 ```
 
-[`skills-manifest.json`](skills-manifest.json) maps each Role to recommended skills — load only your stack's subset. Builder/Worker skills are deliberately checklist-style so a weaker Engine can follow them; heavy reasoning skills (`grill-with-docs`, `improve-codebase-architecture`) stay on the Architect.
-
-The v1.1 names are canonical: `to-spec` replaces `to-prd`, and `to-tickets` replaces `to-issues`/upstream `to-plan`. Because installers do not remove renamed skills, delete stale copies after reinstalling upstream; `install-skills.sh` warns when it finds them:
-
-```bash
-npx skills add mattpocock/skills
-```
+Installs target Claude Code, Codex and OpenCode in one go (`~/.agents/skills`, symlinked into `~/.claude/skills`).
 
 ## How it works under the hood
 
@@ -402,7 +406,7 @@ No. If your repo has an `.agent-board/`, the commands use its board tool instead
 
 ## Docs
 
-- [`CONTEXT.md`](CONTEXT.md) — the shared vocabulary (Role, Engine, Adapter, Handoff Artifact, Escalation, Fan-out, Wave, Worktree).
+- [`GLOSSARY.md`](GLOSSARY.md) — the shared vocabulary (Role, Engine, Adapter, Handoff Artifact, Escalation, Fan-out, Wave, Worktree).
 - [`docs/adr/`](docs/adr/) — the load-bearing decisions and why.
 - [`docs/task-spec.md`](docs/task-spec.md) — the task format + status contract (`planned`→…→`done`) and `depends:` scheduling.
 - [`docs/adr/0004-adopt-skills-v1-1-within-role-pipeline.md`](docs/adr/0004-adopt-skills-v1-1-within-role-pipeline.md) — how Wayfinder and the renamed lifecycle skills fit Role Router.
@@ -411,7 +415,7 @@ No. If your repo has an `.agent-board/`, the commands use its board tool instead
 
 ## Contributing
 
-Issues and PRs welcome. The repo is small on purpose — before adding a command, check it can't be expressed as a Role + an Engine swap. Keep the glossary in `CONTEXT.md` authoritative: if you introduce a term, define it there.
+Issues and PRs welcome. The repo is small on purpose — before adding a command, check it can't be expressed as a Role + an Engine swap. Keep the glossary in `GLOSSARY.md` authoritative: if you introduce a term, define it there.
 
 ## License
 

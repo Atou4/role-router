@@ -8,4 +8,4 @@ We did this because models churn fast. By treating Engines as replaceable bindin
 
 - Commands are named `/plan` `/build` `/review` `/docs` (Roles), never `/kimi` or `/opus` (Engines).
 - Role-to-Adapter and provider/model bindings live in `~/.role-router/config.json`; credentials stay in each harness's authentication store or environment.
-- The shared vocabulary in `CONTEXT.md` forbids using a model name where a Role is meant.
+- The shared vocabulary in `GLOSSARY.md` (formerly `CONTEXT.md`) forbids using a model name where a Role is meant.

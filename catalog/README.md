@@ -1,78 +1,80 @@
-# Skill Catalog
+# Skill catalog
 
-The agent skills this workflow recommends, **classified by domain** and mapped to Role Router roles. We don't vendor skill bodies — each entry points to its **original source** + an install command, so there's no redistribution-license risk and skills stay current with upstream. Machine-readable version: [`skills.json`](./skills.json).
+Generated from [`skills.json`](./skills.json) by `role-router skills readme`; edit the JSON, not this file.
 
-**Install one:** `npx skills add <owner/repo@skill> -g -y` (`-g` → `~/.claude/skills`).
-**Install by domain / all:** `./install-skills.sh <domain|all>` (see repo root).
+Skills are not vendored: each entry points at its upstream source. **use** is who calls it: a Role (handed to it by dispatch via [`skills-manifest.json`](../skills-manifest.json)) or **human** for skills you invoke yourself. **loaded by** `you` means the skill sets `disable-model-invocation`, so no role can load it.
 
-> Aggregator repos (`mattpocock/skills`, `openclaw/skills`, `alirezarezvani/claude-skills`) nest skills in folders. If a `@skill` id 404s, fall back to the repo-level install, e.g. `npx skills add mattpocock/skills -g -y`. Re-verify sources/licenses before relying on them.
+```bash
+role-router skills install all            # or a group, or a use: architect | builder | review | docs | human
+role-router skills doctor                 # per-agent check: missing, user-only, obsolete, diverged, budget
+```
 
-Roles: **architect** → `/plan` · **builder** → `/build` · **worker** → `/review` `/docs` · **meta** → cross-cutting.
+Installs go to Claude Code, Codex and OpenCode together (`claude-code, codex, opencode`).
 
-## Mobile · React Native / Expo
-| Skill | Role | Source | License | Install |
-|---|---|---|---|---|
-| react-native-skills | builder | `vercel-labs/agent-skills` | MIT | `npx skills add vercel-labs/agent-skills@vercel-react-native-skills -g -y` |
-| In-App Purchases | builder | `openclaw/skills` | MIT-0¹ | `npx skills add openclaw/skills@in-app-purchases -g -y` |
+## Planning · grounding, grilling, design
+| Skill | Use | Loaded by | Source | License | What it does |
+|---|---|---|---|---|---|
+| grilling | architect | model | `mattpocock/skills` | MIT | Interview loop: facts from the code, decisions from the user one at a time. |
+| domain-modeling | architect | model | `mattpocock/skills` | MIT | Pin domain vocabulary in GLOSSARY.md and record decisions as ADRs. |
+| codebase-design | architect | model | `mattpocock/skills` | MIT | Deep-module vocabulary: seams, interface depth, information hiding. |
+| prototype | architect | model | `mattpocock/skills` | MIT | Throwaway prototype to answer a behaviour or UI question by seeing it. |
+| research | architect | model | `mattpocock/skills` | MIT | Primary-source research written to a Markdown file in the repo. |
+| why | architect | model | `cursor/plugins` | see repo | Recover the rationale behind existing code from history, issues and docs. |
+| wayfinder | human | you | `mattpocock/skills` | MIT | Chart work too large for one session as a map of investigation tickets. |
+| improve-codebase-architecture | human | you | `mattpocock/skills` | MIT | Find deepening opportunities and grill through the one you pick. |
 
-## Mobile · Flutter / Dart
-| Skill | Role | Source | License | Install |
-|---|---|---|---|---|
-| flutter-coding-rules | builder | first-party² | unknown | copy from `~/.claude/skills/flutter-coding-rules` |
-| flutter-performance | builder | first-party² | unknown | copy from `~/.claude/skills/flutter-performance` |
-| flutter-security | builder | first-party² | unknown | copy from `~/.claude/skills/flutter-security` |
-| flutter-cicd | worker | first-party² | unknown | copy from `~/.claude/skills/flutter-cicd` |
+## Delivery · build, review, ship
+| Skill | Use | Loaded by | Source | License | What it does |
+|---|---|---|---|---|---|
+| tdd | builder | model | `mattpocock/skills` | MIT | Red-green-refactor at the seams the spec agreed. |
+| diagnosing-bugs | builder | model | `mattpocock/skills` | MIT | Reproduce, minimise, hypothesise, fix: used before a Builder escalates. |
+| code-review | review | model | `mattpocock/skills` | MIT | Standards and Spec axes reviewed independently. |
+| pr | docs | model | `mattpocock/skills` | MIT | PR body: summary visual, before/after evidence, merge-danger call. |
+| retro | human | you | `mattpocock/skills` | MIT | After a session: improve the agent's environment, not the code. |
+| blast-radius | human | you | `cursor/plugins` | see repo | Find what a change breaks beyond the diff and prove the safety fact by running code. |
+| create-verification-skill | human | you | `cursor/plugins` | see repo | Generate a project-local skill that drives the real app end to end. |
 
-## Web · UI / UX Design
-| Skill | Role | Source | License | Install |
-|---|---|---|---|---|
-| ui-ux-pro-max | builder | `nextlevelbuilder/ui-ux-pro-max-skill` | MIT | `claude plugin marketplace add nextlevelbuilder/ui-ux-pro-max-skill && claude plugin install ui-ux-pro-max@ui-ux-pro-max-skill` |
+## Issue-tracker flow (optional; Role Router itself uses PLAN.md)
+| Skill | Use | Loaded by | Source | License | What it does |
+|---|---|---|---|---|---|
+| to-spec | human | you | `mattpocock/skills` | MIT | Publish the conversation as a spec on the issue tracker. |
+| to-tickets | human | you | `mattpocock/skills` | MIT | Publish tracer-bullet tickets with blocking edges to the tracker. |
+| triage | human | you | `mattpocock/skills` | MIT | Move issues through triage states and write agent-ready briefs. |
+| setup-matt-pocock-skills | human | you | `mattpocock/skills` | MIT | Configure tracker, labels and doc layout for the tracker skills. |
 
-## Backend · Data / Postgres
-| Skill | Role | Source | License | Install |
-|---|---|---|---|---|
-| supabase | builder | `supabase/agent-skills` | Apache-2.0 | `npx skills add supabase/agent-skills@supabase -g -y` |
-| supabase-postgres-best-practices | builder | `supabase/agent-skills` | Apache-2.0 | `npx skills add supabase/agent-skills@supabase-postgres-best-practices -g -y` |
-| senior-backend | builder | `alirezarezvani/claude-skills` | see repo | `npx skills add alirezarezvani/claude-skills@senior-backend -g -y` |
+## Stack rules · mobile
+| Skill | Use | Loaded by | Source | License | What it does |
+|---|---|---|---|---|---|
+| react-native-skills | builder | model | `vercel-labs/agent-skills` | MIT | React Native and Expo performance and best-practice rules. |
+| flutter-coding-rules | builder | model | `local` | yours | Dart/Flutter coding standards (first-party, not published). |
+| flutter-performance | builder | model | `hoangnguyen0403/agent-skills-standard` | see repo | Flutter rebuild and memory optimisation rules. |
+| flutter-security | builder | model | `hoangnguyen0403/agent-skills-standard` | see repo | OWASP Mobile rules for Flutter. |
+| swiftui-expert-skill | builder | model | `local` | see source | SwiftUI state, composition and performance rules. |
+| In-App Purchases | builder | model | `openclaw/skills` | MIT-0 (unverified) | IAP and subscriptions across iOS, Android and Flutter. |
 
-## Planning · Architecture / Design
-| Skill | Role | Source | License | Install |
-|---|---|---|---|---|
-| grilling | architect | `mattpocock/skills` | MIT | `npx skills add mattpocock/skills@grilling -g -y` |
-| grill-with-docs | architect | `mattpocock/skills` | MIT | `npx skills add mattpocock/skills@grill-with-docs -g -y` |
-| grill-me | architect | `mattpocock/skills` | MIT | `npx skills add mattpocock/skills@grill-me -g -y` |
-| domain-modeling | architect | `mattpocock/skills` | MIT | `npx skills add mattpocock/skills@domain-modeling -g -y` |
-| wayfinder | architect | `mattpocock/skills` | MIT | `npx skills add mattpocock/skills@wayfinder -g -y` |
-| to-spec | architect | `mattpocock/skills` | MIT | `npx skills add mattpocock/skills@to-spec -g -y` |
-| to-tickets | architect | `mattpocock/skills` | MIT | `npx skills add mattpocock/skills@to-tickets -g -y` |
-| codebase-design | architect | `mattpocock/skills` | MIT | `npx skills add mattpocock/skills@codebase-design -g -y` |
-| improve-codebase-architecture | architect | `mattpocock/skills` | MIT | `npx skills add mattpocock/skills@improve-codebase-architecture -g -y` |
-| prototype | architect | `mattpocock/skills` | MIT | `npx skills add mattpocock/skills@prototype -g -y` |
-| research | architect | `mattpocock/skills` | MIT | `npx skills add mattpocock/skills@research -g -y` |
-| zoom-out | architect | `mattpocock/skills` | MIT | `npx skills add mattpocock/skills@zoom-out -g -y` |
+## Stack rules · backend
+| Skill | Use | Loaded by | Source | License | What it does |
+|---|---|---|---|---|---|
+| supabase | builder | model | `supabase/agent-skills` | Apache-2.0 | Supabase database, auth, edge functions, RLS. |
+| supabase-postgres-best-practices | builder | model | `supabase/agent-skills` | Apache-2.0 | Postgres query, schema and index rules. |
+| firebase-basics | builder | model | `firebase/agent-skills` | see repo | Firebase CLI, project setup and config files. |
 
-## Delivery · Workflow / Issue tracking
-| Skill | Role | Source | License | Install |
-|---|---|---|---|---|
-| implement | builder | `mattpocock/skills` | MIT | `npx skills add mattpocock/skills@implement -g -y` |
-| code-review | worker | `mattpocock/skills` | MIT | `npx skills add mattpocock/skills@code-review -g -y` |
-| triage | worker | `mattpocock/skills` | MIT | `npx skills add mattpocock/skills@triage -g -y` |
-| handoff | worker | `mattpocock/skills` | MIT | `npx skills add mattpocock/skills@handoff -g -y` |
-| setup-matt-pocock-skills | architect | `mattpocock/skills` | MIT | `npx skills add mattpocock/skills@setup-matt-pocock-skills -g -y` |
+## Stack rules · UI
+| Skill | Use | Loaded by | Source | License | What it does |
+|---|---|---|---|---|---|
+| ui-ux-pro-max | builder | model | `nextlevelbuilder/ui-ux-pro-max-skill` | MIT | UI/UX styles, palettes, typography and UX guidelines (large: load only for UI tasks). |
 
-## Quality · Testing / Debugging
-| Skill | Role | Source | License | Install |
-|---|---|---|---|---|
-| tdd | builder | `mattpocock/skills` | MIT | `npx skills add mattpocock/skills@tdd -g -y` |
-| diagnose | builder | `mattpocock/skills` | MIT | `npx skills add mattpocock/skills@diagnose -g -y` |
+## Meta · skill tooling
+| Skill | Use | Loaded by | Source | License | What it does |
+|---|---|---|---|---|---|
+| find-skills | human | model | `vercel-labs/skills` | MIT | Discover installable skills. |
 
-## Meta · Skill tooling / Output control
-| Skill | Role | Source | License | Install |
-|---|---|---|---|---|
-| write-a-skill | meta | `mattpocock/skills` | MIT | `npx skills add mattpocock/skills@write-a-skill -g -y` |
-| find-skills | meta | `openclaw/skills` | MIT¹ | `npx skills add openclaw/skills@find-skills -g -y` |
-| caveman | meta | `mattpocock/skills` | MIT | `npx skills add mattpocock/skills@caveman -g -y` |
-
----
-¹ License not individually confirmed — verify before redistributing.
-² **first-party**: no public source found for the `flutter-*` pack (no author metadata, private clean-architecture vocabulary). Treated as your own. If you want these shareable, add a LICENSE and we can vendor them into `catalog/first-party/`.
+## Obsolete
+- `to-prd`: renamed to-spec upstream
+- `to-issues`: renamed to-tickets upstream
+- `diagnose`: renamed diagnosing-bugs upstream
+- `zoom-out`: removed upstream
+- `caveman`: removed upstream
+- `write-a-skill`: removed upstream; skill-creator covers it
+- `resolving-merge-conflicts`: removed upstream
+- `grill-me`: duplicate of grilling for this workflow
