@@ -45,8 +45,28 @@ The administrative-engineering role: documentation, review, summaries, changelog
 _Avoid_: Reviewer-model, GLM
 
 **Engine**:
-The concrete model currently assigned to a Role. Engines change; Roles do not. A Role binding selects an Adapter and, for API-backed engines, a provider/model route.
+The concrete model currently assigned to a Role. Engines change; Roles do not. It is the first usable Profile in the Role's Chain.
 _Avoid_: Model (acceptable loosely, but Engine names the role-bound slot)
+
+**Account**:
+A paid plan or API credential behind one agent (a ChatGPT plan for Codex, a Claude plan for Claude Code, a provider key for OpenCode). **Usage Limits** are tracked per Account, so every Profile on it pauses together.
+_Avoid_: Provider (OpenCode's term), subscription (not all Accounts are subscriptions)
+
+**Profile**:
+An Account plus a model plus a **Tier** — the concrete thing a Role runs on, e.g. Codex with GPT-6 Sol, Claude Code with Sonnet.
+_Avoid_: Engine (the Engine is whichever Profile is serving a Role right now)
+
+**Tier**:
+`top` for planning-grade models, `lite` for execution-grade ones. Planning Chains start top; execution Chains start lite.
+_Avoid_: Price tier
+
+**Chain**:
+A Role's ordered list of Profiles. Dispatch uses the first Profile whose Account is not paused, and falls through on a **Usage Limit**.
+_Avoid_: Fallback list, priority
+
+**Usage Limit**:
+An Account's plan window or quota being exhausted, detected from a headless run's events or recorded manually after an interactive one. It pauses the Account until its reset time, writes a **Handoff Artifact**, and moves the work to the next Profile. Distinct from a transient rate limit, which retries the same Profile.
+_Avoid_: Error, outage
 
 **Adapter**:
 The launcher for an authenticated agent harness: `codex`, `opencode`, or vanilla `claude`. Adapters own process invocation; they never translate or copy subscription credentials.
@@ -61,7 +81,7 @@ The precedence rule that determines the Adapter and Engine serving a Role: an ex
 _Avoid_: Provider routing, model selection
 
 **Consent Boundary**:
-The rule that Role Router proposes rather than performs consequential transitions. Changing Role after launch, crossing a provider or billing boundary, opening a PR, or replacing an unavailable Engine requires explicit user confirmation. PR merge remains exclusively human-controlled. Confident initial Role selection and ordinary launch within the resolved binding do not cross this boundary.
+The rule that Role Router proposes rather than performs consequential transitions. Changing Role after launch, using a profile outside the Role's **Chain**, dropping an `ask` Role below its chain head's **Tier**, opening a PR, or merging requires explicit user confirmation; merge stays exclusively human. Falling through a Role's own Chain on a **Usage Limit** does not cross this boundary — listing a profile in the Chain is standing consent.
 _Avoid_: Confirmation for everything, silent fallback
 
 **Permission Policy**:
@@ -102,7 +122,8 @@ _Avoid_: Clone, Sandbox
 
 ## Relationships
 
-- A **Role** is served by exactly one **Engine** at a time; an **Engine** can be swapped without changing the **Role** or the workflow.
+- A **Role** is served by exactly one **Engine** at a time — the first usable **Profile** in its **Chain**; Profiles can be swapped without changing the **Role** or the workflow.
+- A **Usage Limit** pauses an **Account**, so every Profile on it is skipped until reset.
 - Every invocation creates or resumes one **Work Item**, which can move between Roles without depending on a model session's private context.
 - Verification can move a Work Item to **Passed**; only human-accepted delivery moves it to **Done**.
 - A code-changing Work Item normally crosses the **Review Gate** before a PR proposal.
