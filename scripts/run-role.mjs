@@ -1,150 +1,66 @@
 #!/usr/bin/env node
 
-import { spawn, spawnSync } from 'node:child_process';
-import { existsSync, readFileSync } from 'node:fs';
-import os from 'node:os';
+// role-router run|chat — one Role through the dispatcher (see lib/dispatch.mjs).
+//
+//   role-router run <architect|builder|worker|review|docs|escalation> [argument] [flags]
+//   role-router chat <role> <message>        (= run --raw)
+//
+// Flags: --headless  --dry-run  --raw  --cwd=DIR  --profile=ID (run exactly that profile, no fallback)
+// Exit codes: 0 ok · 1 failed · 2 needs a decision · 3 aborted · 75 every profile is limited (retry later)
+
 import path from 'node:path';
-import { fileURLToPath } from 'node:url';
+import { dispatch } from '../lib/dispatch.mjs';
 
-const SCRIPT_DIR = path.dirname(fileURLToPath(import.meta.url));
 const argv = process.argv.slice(2);
-const has = (flag) => argv.includes(flag);
-const option = (name) => {
-  const prefix = `--${name}=`;
-  const hit = argv.find((arg) => arg.startsWith(prefix));
-  return hit?.slice(prefix.length);
-};
-const positional = argv.filter((arg) => !['--headless', '--dry-run', '--raw'].includes(arg) && !arg.startsWith('--cwd='));
-const requestedRole = positional.shift();
-const roleArgument = positional.join(' ');
-const headless = has('--headless');
-const dryRun = has('--dry-run');
-const raw = has('--raw');
-const cwd = path.resolve(option('cwd') || process.cwd());
-const configPath = path.resolve(
-  process.env.ROLE_ROUTER_CONFIG || path.join(os.homedir(), '.role-router', 'config.json'),
-);
+const flags = argv.filter((a) => a.startsWith('--'));
+const has = (name) => flags.includes(`--${name}`);
+const option = (name) => flags.find((a) => a.startsWith(`--${name}=`))?.slice(name.length + 3);
+const [role, ...rest] = argv.filter((a) => !a.startsWith('--'));
+const message = rest.join(' ');
 
-const roleCommands = {
-  architect: 'plan',
-  builder: 'build',
-  worker: 'review',
-  review: 'review',
-  docs: 'docs',
-  escalation: 'build',
-};
-
-function fail(message) {
-  console.error(`role-router: ${message}`);
+const ROLES = ['architect', 'builder', 'worker', 'review', 'docs', 'escalation'];
+if (!ROLES.includes(role)) {
+  console.error(`usage: role-router run <${ROLES.join('|')}> [argument] [--headless] [--dry-run] [--raw] [--cwd=DIR] [--profile=ID]`);
   process.exit(1);
 }
 
-if (!requestedRole || !roleCommands[requestedRole]) {
-  fail('usage: role-router run <architect|builder|worker|review|docs|escalation> [argument] [--raw] [--headless] [--cwd=DIR]');
-}
-if (!existsSync(configPath)) {
-  fail(`missing ${configPath}; run the Role Router installer/configurator first`);
-}
-
-let config;
+let outcome;
 try {
-  config = JSON.parse(readFileSync(configPath, 'utf8'));
+  outcome = await dispatch({
+    role,
+    message: message || undefined,
+    raw: has('raw'),
+    mode: has('headless') ? 'headless' : 'interactive',
+    cwd: path.resolve(option('cwd') || process.cwd()),
+    profile: option('profile'),
+    dryRun: has('dry-run'),
+  });
 } catch (error) {
-  fail(`invalid JSON in ${configPath}: ${error.message}`);
-}
-const bindingRole = ['review', 'docs'].includes(requestedRole) ? 'worker' : requestedRole;
-const binding = config.roles?.[bindingRole];
-if (!binding || binding.adapter === 'unconfigured') {
-  fail(`role ${bindingRole} has no configured engine in ${configPath}`);
-}
-if (!['codex', 'claude', 'opencode'].includes(binding.adapter)) {
-  fail(`role ${bindingRole} uses unknown adapter "${binding.adapter}"`);
-}
-if (binding.adapter === 'opencode' && !binding.model) {
-  fail(`role ${bindingRole} uses OpenCode but has no provider/model ID`);
+  console.error(`role-router: ${error.message}`);
+  process.exit(1);
 }
 
-const commandName = roleCommands[requestedRole];
-const commandPath = raw ? null : resolveCommand(commandName);
-if (raw && !roleArgument) fail('--raw requires an initial message');
-let prompt = raw
-  ? roleArgument
-  : stripFrontmatter(readFileSync(commandPath, 'utf8')).replaceAll('$ARGUMENTS', roleArgument);
-if (requestedRole === 'escalation') {
-  prompt = `You are handling an escalated Builder task after two failed focused attempts. Diagnose the recorded blocker, complete the task, and preserve the task status contract.\n\n${prompt}`;
-}
-
-const launch = buildLaunch(binding, prompt);
-if (dryRun) {
-  console.log(JSON.stringify({
-    role: requestedRole,
-    bindingRole,
-    adapter: binding.adapter,
-    command: launch.command,
-    args: launch.args.map((arg) => arg === prompt ? '<role-prompt>' : arg),
-    cwd,
-    commandPath,
-  }, null, 2));
+if (outcome.plan) {
+  console.log(JSON.stringify({ role, chain: outcome.plan }, null, 2));
   process.exit(0);
 }
 
-await preflight(binding.adapter);
-const child = spawn(launch.command, launch.args, {
-  cwd,
-  env: launch.env,
-  stdio: 'inherit',
-});
-child.on('error', (error) => fail(`could not launch ${launch.command}: ${error.message}`));
-child.on('exit', (code, signal) => {
-  if (signal) process.kill(process.pid, signal);
-  process.exit(code ?? 1);
-});
+const ran = outcome.runs.map((r) => `${r.profile}:${r.result.kind}`).join(' → ');
+if (ran && has('headless')) console.error(`role-router: ${ran}`);
+if (outcome.tierDropped) console.error('role-router: ran on a lighter tier than the chain head; re-review the result.');
 
-function resolveCommand(name) {
-  const hit = path.resolve(SCRIPT_DIR, '..', 'commands', `${name}.md`);
-  if (!existsSync(hit)) fail(`could not find commands/${name}.md`);
-  return hit;
-}
-
-function stripFrontmatter(markdown) {
-  return markdown.replace(/^---\n[\s\S]*?\n---\n/, '').trim();
-}
-
-function buildLaunch(engine, rolePrompt) {
-  if (engine.adapter === 'codex') {
-    const args = headless ? ['exec', '-C', cwd] : ['-C', cwd];
-    if (engine.model) args.push('--model', engine.model);
-    args.push('--sandbox', 'workspace-write');
-    if (headless) args.push('--json');
-    args.push(rolePrompt);
-    return { command: 'codex', args, env: process.env };
-  }
-
-  if (engine.adapter === 'opencode') {
-    const args = headless
-      ? ['run', '--dir', cwd, '--model', engine.model, '--format', 'json', rolePrompt]
-      : [cwd, '--model', engine.model, '--prompt', rolePrompt];
-    return { command: 'opencode', args, env: process.env };
-  }
-
-  const args = headless
-    ? ['-p', rolePrompt, '--output-format', 'stream-json', '--verbose', '--dangerously-skip-permissions', '--add-dir', cwd]
-    : [rolePrompt];
-  return { command: 'claude', args, env: process.env };
-}
-
-async function preflight(adapter) {
-  const executable = adapter === 'codex' ? 'codex' : adapter === 'opencode' ? 'opencode' : 'claude';
-  const installed = spawnSync(executable, ['--version'], { stdio: 'ignore' });
-  if (installed.error || installed.status !== 0) fail(`${executable} is not installed or not executable`);
-  if (adapter === 'codex') {
-    const auth = spawnSync('codex', ['login', 'status'], { encoding: 'utf8' });
-    if (auth.status !== 0) fail('Codex CLI is not signed in; run `codex login` first');
-  }
-  if (adapter === 'opencode' && binding.keyEnv && !process.env[binding.keyEnv]) {
-    const auth = spawnSync('opencode', ['auth', 'list'], { encoding: 'utf8' });
-    if (auth.status !== 0 || !auth.stdout.includes(binding.provider || binding.model.split('/')[0])) {
-      fail(`${binding.keyEnv} is not set and OpenCode has no matching stored login; run \`opencode auth login\``);
-    }
-  }
+switch (outcome.status) {
+  case 'ok': process.exit(0);
+  case 'waiting':
+    console.error(`role-router: ${outcome.message}; earliest reset ${outcome.resumeAt.toLocaleString()}. Handoff: ${outcome.handoff ?? '(none)'}`);
+    process.exit(75);
+  case 'needs_choice':
+    console.error(`role-router: ${outcome.choice.question}\n  options: ${outcome.choice.options.join(' | ')}\n  Re-run interactively to choose.`);
+    process.exit(2);
+  case 'aborted':
+    console.error(`role-router: ${outcome.message}${outcome.resumeAt ? `; earliest reset ${outcome.resumeAt.toLocaleString()}` : ''}`);
+    process.exit(3);
+  default:
+    console.error(`role-router: ${outcome.message ?? 'failed'}`);
+    process.exit(1);
 }

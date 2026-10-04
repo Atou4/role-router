@@ -198,6 +198,7 @@ One supervised iteration: reconcile merged PRs → `done`, guard that the previo
 | `role-router run builder <id>` | Builder | configured, normally OpenCode/Z.AI | Implement one task and run gates |
 | `role-router run worker <id>` | Worker | configured, normally OpenCode/Z.AI | Emit `passed` / `gaps_found` / `human_needed` |
 | `role-router run docs <id>` | Worker | configured | Write PR body, update board, open PR |
+| `role-router limits` | — | — | Show or edit paused accounts |
 | `/next` | Builder+Worker | launches each binding | One adapter-driven loop turn |
 | `/fan-out <ids…>` | Builder ×N | Builder binding | Parallel independent tasks in fresh contexts |
 
@@ -255,6 +256,34 @@ Each task carries two scheduler fields — a **status** and a **`depends:`** lis
 A task is **buildable** when its status is `planned` **and** every `depends:` task is `done`. `/next` builds the first buildable task; `/fan-out` builds the whole buildable **wave**. `/review` writes the status that decides what happens next.
 
 The portable driver is [`scripts/board.mjs`](scripts/board.mjs) (operates on `PLAN.md`); `.agent-board/` repos use their own board tool. Full contract: [`docs/task-spec.md`](docs/task-spec.md).
+
+## Fallback chains & usage limits
+
+Each Role lists **profiles** in preference order (an account + model + tier). Copy [`config/role-router.v2.example.json`](config/role-router.v2.example.json) to `~/.role-router/config.json` and edit it — model ids are passed to the agent untouched, so any model your plan offers works. Old v1 configs keep working.
+
+```
+accounts  → which paid plan/agent:      openai (codex) · anthropic (claude) · zai (opencode)
+profiles  → account + model + tier:     codex-top = openai + gpt-6-sol (top) · claude-mid = anthropic + sonnet (lite)
+roles     → ordered chain of profiles:  builder: claude-mid → codex-lite → glm
+```
+
+What happens in a headless run (`--headless`, and everything `fanout` launches):
+
+- **Usage limit hit** → that *account* is paused until its reset time (or `cooldownMinutes`), a `handoff.md` is written under `.role-router/runs/<task>/`, and the next profile continues from the handoff. The worktree is kept as is.
+- **Transient 429** → the same profile is retried a couple of times, then the chain moves on.
+- **Planning Roles (`onTierDrop: "ask"`)** never silently drop to a lighter model: interactively you choose *wait / switch / abort*; headless it exits `2` and waits for you.
+- **Reviews** prefer an account other than the one that built the task, and ask before reviewing on the same one.
+- **Every profile limited** → exit `75` with the earliest reset time.
+
+Limits can only be detected automatically in headless runs. After hitting one in an interactive session, record it:
+
+```bash
+role-router limits                              # which accounts are paused
+role-router limits pause anthropic --until=17:30   # or +90m, +2h, an ISO date
+role-router limits clear anthropic
+```
+
+Every headless run leaves `.role-router/runs/<task>/NNN-<profile>.json` (+ `.jsonl` events): agent, result, tokens/cost when the agent reports them. Design: [ADR-0006](docs/adr/0006-account-aware-fallback-chains.md), [dispatch.md](docs/design/dispatch.md).
 
 ## Swapping Engines
 

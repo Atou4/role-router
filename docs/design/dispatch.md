@@ -1,6 +1,6 @@
 # Dispatch: account-aware fallback across paid agents
 
-Design rationale for [ADR-0006](../adr/0006-account-aware-fallback-chains.md). Sketch lives in `lib/` with `not implemented` bodies.
+Design rationale for [ADR-0006](../adr/0006-account-aware-fallback-chains.md). Implemented in `lib/`; tests in `test/`.
 
 ## Problem
 
@@ -113,7 +113,9 @@ Arena runners were not available in this session, so the two candidates were dra
 
 ## Open questions and risks
 
-- Real limit output has not been captured yet; the first implementation step records genuine fixtures the next time each account hits a limit.
+- Success output of Codex and Claude Code is captured as fixtures; real *limit* output is not. Limit patterns come from public docs, so add fixtures under `test/fixtures/<agent>/` the first time each account hits a limit.
+- `scripts/configure.mjs` still writes a v1 config (upgraded on load); a v2 wizard is not built yet.
+- `fanout` worktree creation and resume was not exercised live, only `dispatch()` itself.
 
 ## Next implementation step
 
