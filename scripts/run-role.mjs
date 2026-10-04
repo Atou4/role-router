@@ -101,13 +101,8 @@ child.on('exit', (code, signal) => {
 });
 
 function resolveCommand(name) {
-  const roots = [
-    path.resolve(SCRIPT_DIR, '..', 'commands'),
-    path.join(SCRIPT_DIR, 'commands'),
-    path.join(os.homedir(), '.claude', 'commands'),
-  ];
-  const hit = roots.map((root) => path.join(root, `${name}.md`)).find(existsSync);
-  if (!hit) fail(`could not find commands/${name}.md`);
+  const hit = path.resolve(SCRIPT_DIR, '..', 'commands', `${name}.md`);
+  if (!existsSync(hit)) fail(`could not find commands/${name}.md`);
   return hit;
 }
 

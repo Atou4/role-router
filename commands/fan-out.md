@@ -17,15 +17,14 @@ Use this instead of `/next` when you have **several tasks with no dependencies o
 
 ## 1. Pick the wave
 - If the user passed ids, use exactly those (after the independence check above).
-- Otherwise compute the buildable wave: `node ~/.claude/role-router/board.mjs wave` (or the repo's board tool) returns every `planned` task whose `depends:` are all `done`. The driver guarantees dependency-independence; **you** still drop any two that touch the same files (it can't see file overlap). Report the wave you chose, and anything you dropped + why, before launching.
+- Otherwise compute the buildable wave: `role-router board wave` (or the repo's board tool) returns every `planned` task whose `depends:` are all `done`. The driver guarantees dependency-independence; **you** still drop any two that touch the same files (it can't see file overlap). Report the wave you chose, and anything you dropped + why, before launching.
 
 ## 2. Launch
 Run the spawner with a sensible concurrency cap (default 3; raise only if the machine and your OpenRouter rate limits allow):
 
 ```bash
-# installed location (works in any repo — it operates on the current git root):
-node ~/.claude/role-router/fan-out.mjs --concurrency=3 --base=origin/dev TASK-001 TASK-002 TASK-003
-# (inside the role-router repo itself it's scripts/fan-out.mjs)
+# works in any repo — it operates on the current git root:
+role-router fanout --concurrency=3 TASK-001 TASK-002 TASK-003
 ```
 
 Each child:

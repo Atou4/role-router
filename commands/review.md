@@ -22,7 +22,7 @@ You are the **Worker** doing review. Review the diff, do not change code.
 Output a tight findings list grouped **Must-fix / Should-fix / Nit**, each with `file:line`.
 
 ## 4. Emit the status — this is the point of the command
-The loop routes on your **status**, not your prose. End by writing exactly one (`node ~/.claude/role-router/board.mjs set-status $ARGUMENTS <status>`, or the repo's board tool):
+The loop routes on your **status**, not your prose. End by writing exactly one (`role-router board set-status $ARGUMENTS <status>`, or the repo's board tool):
 
 | Status | When |
 |---|---|

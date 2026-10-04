@@ -2,9 +2,9 @@
 
 # Role Router
 
-**Route engineering work to the cheapest *capable* model — by the role it needs, not the model you remember.**
+**Orchestrate your paid coding agents — Codex, Claude Code, OpenCode — by the role each piece of work needs.**
 
-Spend planning time on a subscription-backed Codex or Claude engine; let the bulk of building and admin run on API-backed engines such as Z.AI GLM. Drops into any repo and keeps authentication boundaries explicit.
+Plan on top-tier models, execute on lighter ones, across whichever paid plans you hold. Drops into any repo and keeps authentication boundaries explicit.
 
 [![Codex](https://img.shields.io/badge/harness-Codex-111)](https://developers.openai.com/codex/)
 [![Claude Code](https://img.shields.io/badge/harness-Claude%20Code-d97757)](https://claude.com/claude-code)
@@ -38,7 +38,6 @@ Spend planning time on a subscription-backed Codex or Claude engine; let the bul
 - [Command reference](#command-reference)
 - [Parallel builders — `/fan-out`](#parallel-builders--fan-out)
 - [How the loop knows what's next](#how-the-loop-knows-whats-next)
-- [The Hint Hook](#the-hint-hook)
 - [Swapping Engines](#swapping-engines)
 - [Skill catalog](#skill-catalog)
 - [How it works under the hood](#how-it-works-under-the-hood)
@@ -78,7 +77,7 @@ You keep one workflow; the models behind it are config you can swap in a month w
 | **Node.js** ≥ 18 | runs the installer, `configure.mjs`, `board.mjs`, `fan-out.mjs` | <https://nodejs.org> |
 | **Codex CLI** *(optional)* | uses ChatGPT Plus/Pro for subscription-backed roles | `npm i -g @openai/codex` then `codex login` |
 | **OpenCode** | hosts API-backed Z.AI/OpenRouter roles | `npm i -g opencode-ai` |
-| A **Claude Max** plan *(optional)* | alternative subscription-backed Architect | <https://claude.com/claude-code> |
+| A paid **Claude** plan (Pro or Max) *(optional)* | Claude Code-backed roles | <https://claude.com/claude-code> |
 | At least **one** provider plan | Builder/Worker need a cheap Engine | see below |
 | **git** | the workflow is branch- and worktree-based | preinstalled on most systems |
 | **`gh`** (optional) | lets `/next` reconcile and open PRs | <https://cli.github.com> |
@@ -107,12 +106,12 @@ git clone https://github.com/Atou4/role-router.git && cd role-router
 The installer launches an **interactive CLI** that:
 
 1. ✅ Checks prerequisites (Node.js, Codex CLI, OpenCode)
-2. 🔐 **Asks which subscription harnesses you have** (Codex Plus/Pro, Claude Max)
+2. 🔐 **Asks which subscription harnesses you have** (Codex Plus/Pro, Claude Pro/Max)
 3. 🔑 **Asks which API providers you have** (Z.AI Coding Plan/General API, OpenAI API, OpenRouter, Anthropic API)
 4. ⚙️ **Proposes role bindings** (Architect → Codex, Builder/Worker → Z.AI)
 5. 🎛️ **Lets you customize** which model serves each Role
 6. 📝 **Generates** `~/.role-router/config.json`
-7. 📦 **Installs** the commands, Hint Hook, drivers, and `role-router` launcher
+7. 📦 **Installs** the `role-router` launcher (runs straight from this checkout)
 
 Then it prints the **shell exports** you need to add to your profile (`~/.zshrc` or `~/.bash_profile`):
 
@@ -202,14 +201,14 @@ One supervised iteration: reconcile merged PRs → `done`, guard that the previo
 | `/next` | Builder+Worker | launches each binding | One adapter-driven loop turn |
 | `/fan-out <ids…>` | Builder ×N | Builder binding | Parallel independent tasks in fresh contexts |
 
-**Board driver** (`board.mjs`, installed at `~/.claude/role-router/`):
+**Board driver** (`scripts/board.mjs`):
 
 ```bash
-node ~/.claude/role-router/board.mjs next                 # next buildable task (JSON, or NONE)
-node ~/.claude/role-router/board.mjs wave                 # the buildable wave (JSON array)
-node ~/.claude/role-router/board.mjs list                 # summary, flags BUILDABLE
-node ~/.claude/role-router/board.mjs status TASK-003      # one task's status
-node ~/.claude/role-router/board.mjs set-status TASK-003 review
+role-router board next                 # next buildable task (JSON, or NONE)
+role-router board wave                 # the buildable wave (JSON array)
+role-router board list                 # summary, flags BUILDABLE
+role-router board status TASK-003      # one task's status
+role-router board set-status TASK-003 review
 ```
 
 ## Parallel builders — `/fan-out`
@@ -217,7 +216,7 @@ node ~/.claude/role-router/board.mjs set-status TASK-003 review
 For a batch of **independent** tasks, skip the one-at-a-time loop and build them all at once:
 
 ```bash
-node ~/.claude/role-router/fan-out.mjs TASK-001 TASK-002 TASK-003
+role-router fanout TASK-001 TASK-002 TASK-003
 ```
 
 Each task runs through the configured Builder adapter in its own git worktree. An API binding launches `opencode run`; a Codex binding launches `codex exec`.
@@ -225,16 +224,14 @@ Each task runs through the configured Builder adapter in its own git worktree. A
 The spawner is [`scripts/fan-out.mjs`](scripts/fan-out.mjs); each child uses the configured role adapter and a fresh context:
 
 ```bash
-node ~/.claude/role-router/fan-out.mjs --concurrency=3 --base=origin/dev TASK-001 TASK-002
+role-router fanout --concurrency=3 TASK-001 TASK-002
 ```
 
 | Flag | Default | Meaning |
 |---|---|---|
 | `--concurrency=N` | `3` | how many Builders run at once |
-| `--base=<ref>` | `origin/dev` | branch each worktree forks from |
-| `--engine=role\|vanilla` | `role` | use the Builder binding or vanilla Claude override |
+| `--base=<ref>` | `HEAD` | branch each worktree forks from |
 | `--no-worktree` | off | build in the current dir (single task only) |
-| `--prompt=<tmpl>` | `/build {id}` | the command each child runs |
 | `--yes` | off | skip the confirmation prompt |
 | `--dry-run` | off | validate config and print the launch plan without creating worktrees |
 
@@ -258,10 +255,6 @@ Each task carries two scheduler fields — a **status** and a **`depends:`** lis
 A task is **buildable** when its status is `planned` **and** every `depends:` task is `done`. `/next` builds the first buildable task; `/fan-out` builds the whole buildable **wave**. `/review` writes the status that decides what happens next.
 
 The portable driver is [`scripts/board.mjs`](scripts/board.mjs) (operates on `PLAN.md`); `.agent-board/` repos use their own board tool. Full contract: [`docs/task-spec.md`](docs/task-spec.md).
-
-## The Hint Hook
-
-A free, local `UserPromptSubmit` hook ([`hooks/route-hint.mjs`](hooks/route-hint.mjs)) keyword-classifies your prompt and *suggests* a Role command (e.g. _"this looks like Builder work — consider /build"_). Suggestion only — it never switches Engines, never blocks, and costs zero model tokens.
 
 ## Swapping Engines
 
@@ -330,7 +323,7 @@ npx skills add mattpocock/skills
 
 The Architect writes a self-contained spec (board task or `PLAN.md`); the Builder reads it in a fresh session on a cheap Engine. **State crosses the boundary through files, not shared context** — so the cheap Engine never needs Claude's reasoning in-window.
 
-**Adapters separate harnesses from providers:** `run-role.mjs` loads the same role prompt, then launches Codex, OpenCode, or vanilla Claude. `PLAN.md`, git diffs, and task status remain the cross-harness contract. ([ADR-0003](docs/adr/0003-split-pipeline-per-role.md), [ADR-0005](docs/adr/0005-engine-adapters-separate-harnesses-from-providers.md))
+**Adapters separate harnesses from providers:** `run-role.mjs` loads the same role prompt, then launches Codex, Claude Code, or OpenCode. `PLAN.md`, git diffs, and task status remain the cross-harness contract. ([ADR-0003](docs/adr/0003-split-pipeline-per-role.md), [ADR-0005](docs/adr/0005-engine-adapters-separate-harnesses-from-providers.md))
 
 ## Troubleshooting & FAQ
 

@@ -9,14 +9,12 @@
 //   node scripts/fan-out.mjs --concurrency=4 --base=origin/main TASK-00{1..6}
 //
 // Each task is launched through run-role.mjs, so its Builder binding may be
-// Codex CLI, OpenCode, or vanilla Claude without changing the scheduler.
+// Codex CLI, Claude Code, or OpenCode without changing the scheduler.
 //
 // Flags:
 //   --concurrency=N   max simultaneous Builders            (default 3)
-//   --base=<ref>      branch to cut each task/<id> from     (default origin/dev)
-//   --engine=role|vanilla   role binding or vanilla Claude override (default role)
+//   --base=<ref>      branch to cut each task/<id> from     (default HEAD)
 //   --no-worktree     build in the current dir (UNSAFE for >1 task)
-//   --prompt=<tmpl>   child prompt; {id} is substituted     (default "/build {id}")
 //   --yes             skip the confirmation prompt
 //   --dry-run         validate and print the launch plan only
 
@@ -37,10 +35,8 @@ const has = (name) => argv.includes(`--${name}`);
 
 const ids = argv.filter((a) => !a.startsWith('--'));
 const concurrency = Math.max(1, Number(opt('concurrency', '3')) || 3);
-const base = opt('base', 'origin/dev');
-const engine = opt('engine', 'role');
+const base = opt('base', 'HEAD');
 const useWorktree = !has('no-worktree');
-const promptTmpl = opt('prompt', '/build {id}');
 const autoYes = has('yes');
 const dryRun = has('dry-run');
 
@@ -50,7 +46,7 @@ const dim = (s) => `\x1b[2m${s}\x1b[0m`;
 const die = (msg) => { console.error(red(msg)); process.exit(1); };
 
 if (ids.length === 0) {
-  die('Usage: fan-out.mjs [--concurrency=N] [--base=ref] [--engine=role|vanilla] [--no-worktree] TASK-001 TASK-002 …');
+  die('Usage: fan-out.mjs [--concurrency=N] [--base=ref] [--no-worktree] TASK-001 TASK-002 …');
 }
 if (!useWorktree && ids.length > 1) {
   die('Refusing to run >1 task with --no-worktree: parallel builds in one dir corrupt each other. Drop --no-worktree.');
@@ -62,11 +58,6 @@ const RUN_ROLE = path.join(SCRIPT_DIR, 'run-role.mjs');
 const WT_ROOT = path.join(REPO, '.role-router', 'worktrees');
 const LOG_ROOT = path.join(REPO, '.role-router', 'runs');
 mkdirSync(LOG_ROOT, { recursive: true });
-
-// ── child environment ───────────────────────────────────────────────────────
-function childEnv() {
-  return process.env;
-}
 
 // ── one Builder ───────────────────────────────────────────────────────────────
 function buildOne(id) {
@@ -94,29 +85,9 @@ function buildOne(id) {
 
     const logPath = path.join(LOG_ROOT, `${id}.jsonl`);
     const logFile = createWriteStream(logPath);
-    const prompt = promptTmpl.replaceAll('{id}', id);
-
-    const launch = engine === 'role'
-      ? {
-          command: process.execPath,
-          args: [RUN_ROLE, 'builder', id, '--headless', `--cwd=${cwd}`],
-          env: process.env,
-        }
-      : {
-          command: 'claude',
-          args: [
-            '-p', prompt,
-            '--output-format', 'stream-json',
-            '--verbose',
-            '--dangerously-skip-permissions',
-            '--add-dir', REPO,
-          ],
-          env: childEnv(),
-        };
-
-    const child = spawn(launch.command, launch.args, {
+    const child = spawn(process.execPath, [RUN_ROLE, 'builder', id, '--headless', `--cwd=${cwd}`], {
       cwd,
-      env: launch.env,
+      env: process.env,
       stdio: ['ignore', 'pipe', 'pipe'],
     });
 
@@ -165,27 +136,22 @@ async function pool(items, n, worker) {
 }
 
 // ── main ──────────────────────────────────────────────────────────────────────
-console.log(`Fan-out: ${ids.length} task(s), concurrency ${concurrency}, engine ${engine}${useWorktree ? ', isolated worktrees' : ', SHARED dir'}.`);
-if (engine === 'role') {
-  if (!existsSync(RUN_ROLE)) die(`Role adapter not found at ${RUN_ROLE}. Re-run install.sh.`);
-  const roleConfigPath = process.env.ROLE_ROUTER_CONFIG || path.join(os.homedir(), '.role-router', 'config.json');
-  if (!existsSync(roleConfigPath)) die(`Role config not found at ${roleConfigPath}. Run role-router configure.`);
-  const roleConfig = JSON.parse(readFileSync(roleConfigPath, 'utf8'));
-  const adapter = roleConfig.roles?.builder?.adapter;
-  if (!adapter || adapter === 'unconfigured') die(`Builder has no configured adapter in ${roleConfigPath}.`);
-  console.log(dim(`Builder adapter: ${adapter}${roleConfig.roles.builder.model ? ` (${roleConfig.roles.builder.model})` : ''}.`));
-} else {
-  if (engine !== 'vanilla') die(`Unknown engine "${engine}". Use role or vanilla.`);
-  console.log(red('engine=vanilla: children run on your Claude Max quota / paid API.'));
-}
+console.log(`Fan-out: ${ids.length} task(s), concurrency ${concurrency}${useWorktree ? ', isolated worktrees' : ', SHARED dir'}.`);
+if (!existsSync(RUN_ROLE)) die(`Role adapter not found at ${RUN_ROLE}. Re-run install.sh.`);
+const roleConfigPath = process.env.ROLE_ROUTER_CONFIG || path.join(os.homedir(), '.role-router', 'config.json');
+if (!existsSync(roleConfigPath)) die(`Role config not found at ${roleConfigPath}. Run role-router configure.`);
+const roleConfig = JSON.parse(readFileSync(roleConfigPath, 'utf8'));
+const adapter = roleConfig.roles?.builder?.adapter;
+if (!adapter || adapter === 'unconfigured') die(`Builder has no configured adapter in ${roleConfigPath}.`);
+console.log(dim(`Builder adapter: ${adapter}${roleConfig.roles.builder.model ? ` (${roleConfig.roles.builder.model})` : ''}.`));
 
 if (dryRun) {
-  console.log(JSON.stringify({ ids, concurrency, base, engine, useWorktree }, null, 2));
+  console.log(JSON.stringify({ ids, concurrency, base, useWorktree }, null, 2));
   process.exit(0);
 }
 
 if (!autoYes) {
-  process.stdout.write('Each child runs --dangerously-skip-permissions in its own worktree. Continue? [y/N] ');
+  process.stdout.write('Each child runs headless (unattended permissions per its adapter) in its own worktree. Continue? [y/N] ');
   const ans = await new Promise((r) => {
     const rl = createInterface({ input: process.stdin, output: process.stdout });
     rl.question('', (a) => { rl.close(); r(a); });

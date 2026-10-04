@@ -2,11 +2,10 @@
 set -euo pipefail
 
 # Role Router installer — interactive setup
-# Guides you through selecting providers and generates direct Codex/OpenCode
-# role bindings. Then copies commands + hooks + drivers into ~/.claude.
+# Guides you through selecting agents and generates role bindings, then puts a
+# `role-router` launcher on PATH that runs straight from this checkout.
 
 SRC="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-CLAUDE_DIR="${CLAUDE_DIR:-$HOME/.claude}"
 LOCAL_BIN="${LOCAL_BIN:-$HOME/.local/bin}"
 ROLE_CONFIG="$HOME/.role-router/config.json"
 
@@ -20,7 +19,7 @@ echo
 
 # ── 1. Authentication boundary ─────────────────────────────────────────────
 warn "⚠  IMPORTANT — read before continuing:"
-warn "   Codex Plus/Pro is launched through the signed-in Codex CLI."
+warn "   Codex and Claude Code launch with their own paid-plan sign-ins."
 warn "   API-backed roles launch through OpenCode and use provider API keys."
 warn "   Review ~/.role-router/config.json before running unattended work."
 echo
@@ -31,15 +30,13 @@ echo
 # ── 2. Dependencies ─────────────────────────────────────────────────────────
 command -v node >/dev/null || { echo "node is required. Install Node.js first."; exit 1; }
 
-if ! command -v claude >/dev/null; then
-  warn "Claude Code not found. Install with: npm i -g @anthropic-ai/claude-code"
-fi
-
-if command -v codex >/dev/null; then
-  ok "Codex CLI found ($(codex --version 2>/dev/null || echo present))."
-else
-  warn "Codex CLI not found. It is required only for Codex subscription roles."
-fi
+for agent in codex claude; do
+  if command -v "$agent" >/dev/null; then
+    ok "$agent found ($("$agent" --version 2>/dev/null || echo present))."
+  else
+    warn "$agent not found. It is required only for roles bound to it."
+  fi
+done
 
 if ! command -v opencode >/dev/null; then
   bold "Installing OpenCode…"
@@ -68,24 +65,14 @@ if node -e 'const c=require(process.argv[1]); process.exit(Object.values(c.roles
   fi
 fi
 
-# ── 4. Self-contained runtime ──────────────────────────────────────────────
-mkdir -p "$CLAUDE_DIR/role-router/commands" "$CLAUDE_DIR/role-router/providers" "$LOCAL_BIN"
-cp "$SRC/commands/"*.md "$CLAUDE_DIR/role-router/commands/"
-cp "$SRC/scripts/fan-out.mjs" "$SRC/scripts/board.mjs" "$SRC/scripts/run-role.mjs" "$SRC/scripts/configure.mjs" "$CLAUDE_DIR/role-router/"
-cp "$SRC/providers/catalog.json" "$CLAUDE_DIR/role-router/providers/catalog.json"
-chmod +x "$CLAUDE_DIR/role-router/fan-out.mjs" "$CLAUDE_DIR/role-router/board.mjs" "$CLAUDE_DIR/role-router/run-role.mjs" "$CLAUDE_DIR/role-router/configure.mjs"
+# ── 4. Launcher ──────────────────────────────────────────────────────────────
+mkdir -p "$LOCAL_BIN"
 cat > "$LOCAL_BIN/role-router" <<EOF
 #!/usr/bin/env bash
-set -euo pipefail
-case "\${1:-}" in
-  run) shift; exec node "$CLAUDE_DIR/role-router/run-role.mjs" "\$@" ;;
-  chat) shift; exec node "$CLAUDE_DIR/role-router/run-role.mjs" "\$@" --raw ;;
-  configure) shift; exec node "$CLAUDE_DIR/role-router/configure.mjs" "\$@" ;;
-  *) echo "Usage: role-router {configure|run <role> [argument]|chat <role> <message>}" >&2; exit 1 ;;
-esac
+exec "$SRC/role-router" "\$@"
 EOF
-chmod +x "$LOCAL_BIN/role-router"
-ok "Installed the self-contained role runtime and $LOCAL_BIN/role-router."
+chmod +x "$LOCAL_BIN/role-router" "$SRC/role-router"
+ok "Installed $LOCAL_BIN/role-router → $SRC/role-router."
 case ":$PATH:" in
   *":$LOCAL_BIN:"*) ;;
   *) warn "$LOCAL_BIN is not on PATH. Add: export PATH=\"$LOCAL_BIN:\$PATH\"" ;;
@@ -109,8 +96,8 @@ Workflow:
   • Build:  role-router run builder TASK-XXX
   • Review: role-router run worker TASK-XXX
   • Docs:   role-router run docs TASK-XXX
-  • Loop:   /next launches each configured Adapter   (auto-pick)
-  • Fanout: fan-out.mjs launches the Builder Adapter (parallel)
+  • Board:  role-router board list
+  • Fanout: role-router fanout TASK-001 TASK-002   (parallel Builders)
 
 See README.md for the full guide.
 └───────────────────────────────────────────────────

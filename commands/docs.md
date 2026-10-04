@@ -11,7 +11,7 @@ allowed-tools: Bash, Read, Edit, Write, Glob, Grep, Skill
 You are the **Worker** doing documentation and reporting. This is administrative writing, not engineering decisions.
 
 ## 0. Precondition
-If `$ARGUMENTS` is given, its status must be `passed` (`node ~/.claude/role-router/board.mjs status $ARGUMENTS`, or the repo's board tool). If it's `gaps_found` or `human_needed`, **stop** — it isn't ready to ship; route it back to `/build` (gaps) or to a human. Only a verified task gets a PR.
+If `$ARGUMENTS` is given, its status must be `passed` (`role-router board status $ARGUMENTS`, or the repo's board tool). If it's `gaps_found` or `human_needed`, **stop** — it isn't ready to ship; route it back to `/build` (gaps) or to a human. Only a verified task gets a PR.
 
 ## 1. Gather
 `git diff` against the base branch + the spec for `$ARGUMENTS` (if given). Read what changed.

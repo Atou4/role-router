@@ -80,19 +80,19 @@ if (hasCodex) {
 }
 console.log();
 
-// Step 0b: Claude Max subscription?
-console.log(bold('Do you have a Claude Code Max subscription?'));
-console.log(dim('(Used for Architect only when Codex subscription routing is not selected)'));
+// Step 0b: Claude subscription?
+console.log(bold('Do you have a paid Claude plan (Pro or Max) signed in to Claude Code?'));
+console.log(dim('(Claude Code is launched with its own sign-in; no Anthropic API key is used)'));
 console.log();
 
-const hasMaxAnswer = await question('  Have Claude Code Max? (Y/n): '.trim() + ' ');
-const hasMax = !hasMaxAnswer.toLowerCase().startsWith('n');
+const hasClaudeAnswer = await question('  Use Claude Code subscription? (y/N): '.trim() + ' ');
+const hasClaude = hasClaudeAnswer.toLowerCase().startsWith('y');
 
 console.log();
 if (hasCodex) {
   console.log(dim('✓ Architect will use Codex CLI subscription auth'));
-} else if (hasMax) {
-  console.log(dim('✓ Architect will run on Max (vanilla context)'));
+} else if (hasClaude) {
+  console.log(dim('✓ Architect will use the signed-in Claude Code'));
 } else {
   console.log(dim('⚠ Architect will use your strongest configured OpenCode model'));
 }
@@ -100,12 +100,6 @@ console.log();
 
 // Step 1: Select providers
 console.log(bold('Which plans/providers do you currently have?'));
-if (hasMax) {
-  console.log(dim('☑ Claude Code Max    (Architect stays on vanilla)'));
-} else {
-  console.log(dim('☐ Claude Code Max    (not available — Architect uses OpenCode)'));
-}
-console.log();
 
 const providerOptions = [
   { key: 'zai-coding', name: 'Z.AI GLM Coding Plan' },
@@ -131,7 +125,7 @@ if (selectedProviders.includes('zai-coding') && selectedProviders.includes('zai'
 
 if (selectedProviders.length === 0) {
   console.log(yellow('\n⚠ No providers selected. At minimum, you need one for Builder and Worker.'));
-  console.log(dim('  If you only have Claude Max, you can still use /plan but the build steps need a provider.'));
+  console.log(dim('  If you only have a Codex or Claude plan, you can still use /plan but the build steps need a provider.'));
   const continueAnyway = await question('\nContinue anyway? (y/N): ');
   if (continueAnyway.toLowerCase() !== 'y') {
     console.log(dim('\nSetup cancelled. Add a provider key when you have one.'));
@@ -161,7 +155,7 @@ console.log();
 console.log(bold('┌─ Proposed configuration ───────────────────────────┐'));
 console.log();
 
-const proposedRouting = proposeRouting(selectedProviders, catalog, hasMax, hasCodex);
+const proposedRouting = proposeRouting(selectedProviders, catalog, hasClaude, hasCodex);
 
 console.log(dim('Based on what you have, here\'s a sane setup:'));
 console.log();
@@ -197,7 +191,7 @@ console.log();
 console.log(bold('┌─ Generating configuration ────────────────────────┐'));
 console.log();
 
-const roleConfig = generateRoleConfig(finalRouting, selectedProviders, catalog, { hasCodex, hasMax });
+const roleConfig = generateRoleConfig(finalRouting, selectedProviders, catalog, { hasCodex, hasClaude });
 
 fs.mkdirSync(path.dirname(ROLE_OUTPUT_PATH), { recursive: true });
 fs.writeFileSync(ROLE_OUTPUT_PATH, JSON.stringify(roleConfig, null, 2));
@@ -232,7 +226,7 @@ console.log();
 
 rl.close();
 
-function proposeRouting(providers, catalog, hasMax = true, hasCodex = false) {
+function proposeRouting(providers, catalog, hasClaude = true, hasCodex = false) {
   const routing = {
     Architect: { model: null, provider: null },
     Builder: { model: null, provider: null },
@@ -243,10 +237,10 @@ function proposeRouting(providers, catalog, hasMax = true, hasCodex = false) {
   // Architect routing
   if (hasCodex) {
     routing.Architect = { model: 'Codex subscription', provider: 'Codex CLI' };
-  } else if (hasMax) {
-    routing.Architect = { model: 'Claude Opus (Max)', provider: 'Max (vanilla)' };
+  } else if (hasClaude) {
+    routing.Architect = { model: 'Claude subscription', provider: 'Claude Code' };
   } else {
-    // No Max: route Architect through strongest available model
+    // No subscription harness: route Architect through strongest available model
     if (providers.includes('openai')) {
       const o1 = catalog.providers.openai.models.find(m => m.id === 'o1');
       if (o1) {
@@ -429,7 +423,7 @@ function generateRoleConfig(routing, providers, catalog, subscriptions) {
 
   const architect = subscriptions.hasCodex
     ? { adapter: 'codex', mode: 'interactive' }
-    : subscriptions.hasMax
+    : subscriptions.hasClaude
       ? { adapter: 'claude', mode: 'interactive' }
       : opencodeBinding(routing.Architect);
 

@@ -10,7 +10,7 @@ allowed-tools: Bash, Read, Edit, Write, Glob, Grep, Skill
 
 You are **one supervised iteration** of the build loop. The rule: never start a new task while the previous one's PR is still open and unmerged. Work the steps in order; **stop and report** the moment a gate or guard fails — do not thrash.
 
-Driver: `.agent-board/` repos use the repo's board tool; otherwise use `node ~/.claude/role-router/board.mjs` over `PLAN.md`. The status names below are the normalized contract in [`docs/task-spec.md`](../docs/task-spec.md).
+Driver: `.agent-board/` repos use the repo's board tool; otherwise use `role-router board` over `PLAN.md`. The status names below are the normalized contract in [`docs/task-spec.md`](../docs/task-spec.md).
 
 ## 1. Reconcile finished work → `done`
 If the repo uses PRs (`gh` available):

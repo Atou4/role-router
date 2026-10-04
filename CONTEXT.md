@@ -1,6 +1,6 @@
 # Role Router
 
-A portable workflow that routes software-engineering work to the cheapest capable model **by the role the work needs**, not by technology. Subscription-backed harnesses such as Codex and Claude stay separate from API-backed providers such as Z.AI.
+A personal orchestrator that dispatches software-engineering work across paid coding agents (Codex, Claude Code, OpenCode) **by the role the work needs**. Planning runs on top-tier models; execution runs on lighter ones.
 
 ## Language
 
@@ -8,12 +8,8 @@ A portable workflow that routes software-engineering work to the cheapest capabl
 The kind of engineering work a request needs — the routing unit. One of Architect, Builder, or Worker. The system routes on Role; models are swappable behind it.
 _Avoid_: Task type, model name
 
-**Intent Selector**:
-The local, deterministic entry decision that maps an unqualified user message to a **Role** and **Operation** before any Adapter launches. It uses explicit overrides, message wording, Work Item context, and repository metadata without calling a model. Clear intent launches immediately; ambiguous intent asks the user once, with Architect as the default Role. It never chooses an Engine directly.
-_Avoid_: Model router, Engine selector, Role Selector
-
 **Role Override**:
-An explicit user choice of Architect, Builder, or Worker that takes precedence over the Role selected by the **Intent Selector**. It is the escape hatch when the user already knows which kind of work is needed.
+An explicit user choice of Architect, Builder, or Worker for an invocation. It is the escape hatch when the user already knows which kind of work is needed.
 _Avoid_: Model override
 
 **Operation**:
@@ -24,14 +20,6 @@ _Avoid_: Role, command name
 A persistently identified unit of user intent that survives sessions and Role transitions. Every invocation creates or resumes one; planned tasks reuse their task ID, while direct requests receive an automatic identity. A Work Item does not require a plan unless its scope demands one.
 _Avoid_: Conversation, model session
 
-**Work Item Record**:
-Private, repository-scoped runtime state that preserves a Work Item's status and continuation across sessions and worktrees. A vague resume request may propose the repository's most recent resumable Work Item, but reopening it requires confirmation. It is not a project deliverable and is not committed by default.
-_Avoid_: Task specification, Handoff Artifact
-
-**Publication**:
-The explicit act of turning selected Work Item knowledge into a durable, team-visible artifact such as a plan, specification, ADR, or tracker ticket. Merely opening or resuming work never publishes it.
-_Avoid_: Auto-save, persistence
-
 **Passed**:
 A non-terminal Work Item state meaning its Operation-specific evidence satisfies the current acceptance criteria and it is ready for human delivery. Passed is not Done; an open PR remains Passed until merge.
 _Avoid_: Complete, delivered
@@ -41,7 +29,7 @@ The default independent Worker review required after a code-changing Builder Ope
 _Avoid_: Builder self-review, automatic approval
 
 **Done**:
-The terminal state for human-accepted delivery. A code-changing Work Item becomes Done only after its PR is merged by the user; a non-code Work Item requires explicit human acceptance or Publication.
+The terminal state for human-accepted delivery. A code-changing Work Item becomes Done only after its PR is merged by the user; a non-code Work Item requires explicit human acceptance.
 _Avoid_: Agent finished, tests passed, PR opened
 
 **Architect**:
@@ -73,7 +61,7 @@ The precedence rule that determines the Adapter and Engine serving a Role: an ex
 _Avoid_: Provider routing, model selection
 
 **Consent Boundary**:
-The rule that Role Router proposes rather than performs consequential transitions. Changing Role after launch, crossing a provider or billing boundary, publishing private work, opening a PR, or replacing an unavailable Engine requires explicit user confirmation. PR merge remains exclusively human-controlled. Confident initial Role selection and ordinary launch within the resolved binding do not cross this boundary.
+The rule that Role Router proposes rather than performs consequential transitions. Changing Role after launch, crossing a provider or billing boundary, opening a PR, or replacing an unavailable Engine requires explicit user confirmation. PR merge remains exclusively human-controlled. Confident initial Role selection and ordinary launch within the resolved binding do not cross this boundary.
 _Avoid_: Confirmation for everything, silent fallback
 
 **Permission Policy**:
@@ -84,10 +72,6 @@ _Avoid_: Engine capability, auto-approve by default
 The API-backed coding-agent harness. It supports Z.AI, OpenRouter, DeepSeek, Moonshot/Kimi, and many other providers without a local proxy daemon.
 _Avoid_: Router (ambiguous with the whole system), proxy
 
-**Vanilla Context**:
-A normal Claude Code session authenticated by a Claude subscription. It remains an optional Adapter, not the only Architect path.
-_Avoid_: Default session, Claude session
-
 **OpenCode Context**:
 An OpenCode session launched in the target repository with a role prompt and explicit provider/model ID.
 _Avoid_: Routed session
@@ -95,10 +79,6 @@ _Avoid_: Routed session
 **Handoff Artifact**:
 The file(s) that carry state between Roles across separate sessions/Engines — the board task spec, the working diff, and `board.json`. Replaces in-context model-switching: the Architect can hand planned work to Builder, and Builder can hand discovered planning blockers back to Architect.
 _Avoid_: Context passing, shared memory
-
-**Hint Hook**:
-A free, local `UserPromptSubmit` hook that keyword-classifies a prompt and *suggests* a Role command (e.g. "looks like Builder — run /build?"). Suggests only; never auto-switches; costs no model call.
-_Avoid_: Classifier, auto-router
 
 **Escalation**:
 A user-confirmed transition from Builder to the configured Architect after a planning blocker is discovered or the configured failure threshold is reached. Builder writes a Handoff Artifact before the transition; Role Router never changes Roles silently. When Architect finishes, Role Router offers to return the work to Builder; declining preserves a resumable continuation.
@@ -113,7 +93,7 @@ A set of tasks whose dependencies are all already Done, so they can be fanned ou
 _Avoid_: Batch (acceptable loosely), Sprint
 
 **Work Graph**:
-An approved set of Work Items and their blocking relationships. The Architect or Intent Selector may propose decomposition, but no queue or Wave exists until the user approves the items and edges.
+An approved set of Work Items and their blocking relationships. The Architect may propose decomposition, but no queue or Wave exists until the user approves the items and edges.
 _Avoid_: Automatic task list, unapproved queue
 
 **Worktree**:
@@ -123,20 +103,17 @@ _Avoid_: Clone, Sandbox
 ## Relationships
 
 - A **Role** is served by exactly one **Engine** at a time; an **Engine** can be swapped without changing the **Role** or the workflow.
-- An unqualified message passes through the **Intent Selector**; Role and Operation overrides replace either selected dimension independently.
 - Every invocation creates or resumes one **Work Item**, which can move between Roles without depending on a model session's private context.
-- A **Work Item Record** stays private; **Publication** is required before its durable decisions become project-visible.
 - Verification can move a Work Item to **Passed**; only human-accepted delivery moves it to **Done**.
 - A code-changing Work Item normally crosses the **Review Gate** before a PR proposal.
 - A multi-task request may produce a proposed **Work Graph**; only an approved graph can expose a **Wave** for fan-out.
 - Each Role binding selects an **Adapter**. Subscription-backed Codex/Claude and API-backed OpenCode credentials remain separate.
 - **Binding Resolution** applies command-line override, then repository policy, then user-wide defaults.
-- The **Consent Boundary** prevents silent Role transitions, cross-provider fallback, and Publication.
+- The **Consent Boundary** prevents silent Role transitions and cross-provider fallback.
 - A **Permission Policy** is resolved independently from the Engine and cannot be silently elevated by Role Router.
 - A Role command maps to a Role: `/plan` → Architect, `/build` → Builder, `/review` + `/docs` → Worker.
 - An **Operation** selects the workflow prompt and **Permission Policy** independently from Role-to-Engine routing.
 - The **Architect** produces a **Handoff Artifact**; the **Builder** consumes it; the **Worker** documents/reviews the result.
-- The **Hint Hook** suggests a Role command but never selects an **Engine** itself.
 - **Escalation** moves a blocked **Builder** task to the configured **Architect** only after user confirmation and a written **Handoff Artifact**.
 
 ## Example Dialogue

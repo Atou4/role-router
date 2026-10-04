@@ -16,8 +16,16 @@ case "${1:-}" in
     shift
     exec node "$ROOT/scripts/configure.mjs" "$@"
     ;;
+  board)
+    shift
+    exec node "$ROOT/scripts/board.mjs" "$@"
+    ;;
+  fanout)
+    shift
+    exec node "$ROOT/scripts/fan-out.mjs" "$@"
+    ;;
   *)
-    echo "Usage: role-router {configure|run <role> [argument]|chat <role> <message>}" >&2
+    echo "Usage: role-router {configure|run <role> [argument]|chat <role> <message>|board <cmd>|fanout <TASK...>}" >&2
     exit 1
     ;;
 esac
