@@ -10,12 +10,18 @@ import { dispatch } from '../lib/dispatch.mjs';
 import { handoffPath } from '../lib/runs.mjs';
 
 // Fake agents: real Codex classifier, but the "CLI" is a node one-liner chosen by profile.model.
+const SESSION = `console.log('{"type":"thread.started","thread_id":"sess-1"}');`;
 const SCRIPTS = {
   ok: `console.log(JSON.stringify({type:'item.completed',item:{type:'agent_message',text:'done'}}));console.log('{"type":"turn.completed","usage":{"input_tokens":1,"output_tokens":1}}')`,
-  limit: `console.log(JSON.stringify({type:'turn.failed',error:{message:"You've hit your usage limit. Try again in 2 hours."}}));process.exit(1)`,
+  limit: `${'{SESSION}'}console.log(JSON.stringify({type:'turn.failed',error:{message:"You've hit your usage limit. Try again in 2 hours."}}));process.exit(1)`,
   crash: `process.exit(2)`,
 };
-const fake = { ...codex, preflight: () => null, launch: (profile) => ({ command: process.execPath, args: ['-e', SCRIPTS[profile.model]] }) };
+const launches = [];
+const script = (model) => SCRIPTS[model].replace('{SESSION}', SESSION);
+const fake = { ...codex, preflight: () => null, launch: (profile, account, prompt, opts) => {
+  launches.push({ profile: profile.id, resume: opts.resume, prompt });
+  return { command: process.execPath, args: ['-e', script(profile.model)] };
+} };
 const agents = { codex: fake, claude: fake, opencode: fake };
 
 const profile = (id, account, model, tier) => [id, { id, account, model, tier }];
@@ -33,6 +39,7 @@ const base = (over) => ({ mode: 'headless', get cwd() { return cwd; }, ...over }
 const deps = (cfg, extra = {}) => ({ agents, config: cfg, now: () => t0, sleep: async () => {}, ...extra });
 
 beforeEach(() => {
+  launches.length = 0;
   process.env.ROLE_ROUTER_STATE_DIR = mkdtempSync(path.join(os.tmpdir(), 'rr-state-'));
   cwd = mkdtempSync(path.join(os.tmpdir(), 'rr-repo-'));
   execFileSync('git', ['init', '-q'], { cwd });
@@ -116,4 +123,61 @@ test('dry run describes the chain without launching or writing', async () => {
   const out = await dispatch(base({ role: 'architect', message: 'x', dryRun: true }), deps(architect));
   assert.deepEqual(out.plan.map((p) => p.profile), ['top', 'lite']);
   assert.equal(existsSync(path.join(cwd, '.role-router')), false);
+});
+
+const writePlan = () => writeFileSync(path.join(cwd, 'PLAN.md'), '## TASK-001 — T\n- status: building\n- depends:\n### Acceptance Criteria\n- [x] first thing\n- [ ] second thing\n');
+
+test('handoff lists verified vs open criteria and live-state commands, not a snapshot', async () => {
+  writePlan();
+  const cfg = config({ builder: { chain: ['a'], onTierDrop: 'auto' } }, [profile('a', 'A', 'limit', 'lite')]);
+  const out = await dispatch(base({ role: 'builder', task: 'TASK-001' }), deps(cfg));
+  const text = readFileSync(out.handoff, 'utf8');
+  assert.match(text, /- \[x\] first thing/);
+  assert.match(text, /- \[ \] second thing/);
+  assert.match(text, /git -C .* status --short/);
+  assert.match(text, /Run the task's verification gates/);
+});
+
+test('a crash also leaves a handoff', async () => {
+  const cfg = config({ builder: { chain: ['a'], onTierDrop: 'auto' } }, [profile('a', 'A', 'crash', 'lite')]);
+  const out = await dispatch(base({ role: 'builder', task: 'TASK-001' }), deps(cfg));
+  assert.equal(out.status, 'crashed');
+  assert.ok(existsSync(out.handoff));
+});
+
+test('the same agent resumes its own session once its account resets', async () => {
+  const cfg = config({ builder: { chain: ['a'], onTierDrop: 'auto' } }, [profile('a', 'A', 'limit', 'lite')]);
+  const first = await dispatch(base({ role: 'builder', task: 'TASK-001' }), deps(cfg));
+  assert.equal(first.status, 'waiting');
+  assert.equal(first.runs[0].result.sessionId, 'sess-1');
+
+  const later = () => new Date('2026-10-04T15:00:00Z'); // past the 14:00 reset
+  const flaky = { ...cfg, profiles: { a: { ...cfg.profiles.a, model: 'ok' } } };
+  const second = await dispatch(base({ role: 'builder', task: 'TASK-001' }), deps(flaky, { now: later }));
+  assert.equal(second.status, 'ok');
+  assert.equal(second.runs[0].resumed, true);
+  assert.equal(launches.at(-1).resume, 'sess-1');
+  assert.match(launches.at(-1).prompt, /usage limit has reset/);
+});
+
+test('a failed resume falls back to a fresh start with the full prompt', async () => {
+  const cfg = config({ builder: { chain: ['a'], onTierDrop: 'auto' } }, [profile('a', 'A', 'limit', 'lite')]);
+  await dispatch(base({ role: 'builder', task: 'TASK-001' }), deps(cfg));
+  launches.length = 0;
+  // Same profile id, but now the "agent" crashes when asked to resume and succeeds when fresh.
+  const resumeBreaks = { ...fake, launch: (p, a, prompt, opts) => {
+    launches.push({ resume: opts.resume });
+    return { command: process.execPath, args: ['-e', script(opts.resume ? 'crash' : 'ok')] };
+  } };
+  const later = () => new Date('2026-10-04T15:00:00Z');
+  const out = await dispatch(base({ role: 'builder', task: 'TASK-001' }), deps(cfg, { now: later, agents: { codex: resumeBreaks, claude: resumeBreaks, opencode: resumeBreaks } }));
+  assert.equal(out.status, 'ok');
+  assert.deepEqual(launches.map((l) => Boolean(l.resume)), [true, false]);
+});
+
+test('every headless run record carries git evidence', async () => {
+  const cfg = config({ builder: { chain: ['a'], onTierDrop: 'auto' } }, [profile('a', 'A', 'ok', 'lite')]);
+  const out = await dispatch(base({ role: 'builder', task: 'TASK-001' }), deps(cfg));
+  const record = JSON.parse(readFileSync(out.runs[0].recordPath, 'utf8'));
+  assert.equal(typeof record.evidence?.uncommittedFiles, 'number');
 });
