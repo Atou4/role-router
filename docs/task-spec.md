@@ -39,6 +39,8 @@ planned ──/build──▶ building ──gates green──▶ review ──/
                                                           └─▶ human_needed ─▶ stop (a human decides)
 ```
 
+`building ──▶ human_needed` is also legal: the Builder sets it when the implementation needs a public type, signature, or module boundary the spec's **Interface sketch** did not anticipate. That is a design question for the Architect, not something a Builder decides.
+
 | Status | Meaning | Set by |
 |---|---|---|
 | `planned` | Architect hardened it; **buildable** | `/plan` |

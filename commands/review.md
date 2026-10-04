@@ -14,9 +14,11 @@ You are the **Worker** doing review. Review the diff, do not change code.
 `git diff` against the base branch (default branch). If `$ARGUMENTS` is given, also read its spec (`.agent-board/tasks/$ARGUMENTS.md` or the `PLAN.md` section) to check the diff actually satisfies the Acceptance Criteria.
 
 ## 2. Review
-- Invoke the repo's review skills (`code-review` and any stack rule skills like `supabase-postgres-best-practices`). Run its Standards and Spec axes independently, including the refactoring-smell baseline, then map any hard failure to the normalized status below.
+- Use the `code-review` skill and any stack rule skills listed under **Skills for this run**. Run its Standards and Spec axes independently, including the refactoring-smell baseline, then map any hard failure to the normalized status below.
+- **Interface sketch:** if the spec has one, the diff must implement it as written. A public type, signature, or module boundary that differs from the sketch is a Must-fix unless the spec records an approved change.
 - **Requirement coverage, not just a diff scan:** go through every Acceptance Criterion / REQ-ID in the spec and confirm the diff actually implements it. A criterion ticked-but-unverified is a Must-fix.
 - Also check: convention violations, obvious correctness or security issues.
+- **Risk flag:** if the diff touches money, auth or permissions, data migrations, a status/enum mapping, or anything another repo reads, add a **Risk** line to the report recommending the user run `/blast-radius` on it before merge. This is a recommendation for the human, not a status change.
 
 ## 3. Report
 Output a tight findings list grouped **Must-fix / Should-fix / Nit**, each with `file:line`.

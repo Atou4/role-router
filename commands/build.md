@@ -1,5 +1,5 @@
 ---
-description: BUILDER role — implement one task from its spec, run quality gates, self-review. Launch through the configured Builder adapter.
+description: BUILDER role — implement one task against its spec and interface sketch, run quality gates, self-review. Launch through the configured Builder chain.
 argument-hint: TASK-XXX
 allowed-tools: Bash, Read, Edit, Write, Glob, Grep, Skill
 ---
@@ -18,12 +18,14 @@ You are the **Builder**. Implement `$ARGUMENTS` from its Handoff Artifact. Work 
 5. Mark it building: `role-router board set-status $ARGUMENTS building` (or move it to the repo board's "In Progress").
 
 ## 1. Build
-Implement the spec's Scope. Follow the repo's existing patterns and file structure. Do not expand scope beyond the spec — if the spec is wrong or incomplete, stop and escalate (step 4), don't redesign.
+Implement the spec's Scope against its **Interface sketch**. The sketch is the contract: replace `not implemented` bodies and pseudocode with real code, keep the public types and signatures exactly as written. Follow the repo's existing patterns and file structure. Do not expand scope beyond the spec.
+
+**Sketch deviations are design questions, not friction to absorb.** If the implementation needs a public type, signature, or module boundary the sketch did not anticipate, do not invent one. Write a short note in the spec (what the sketch is missing and why), set the status to `human_needed` (`role-router board set-status $ARGUMENTS human_needed`), and stop. The Architect revisits the design. A private helper or internal detail is not a deviation.
 
 Use `/tdd` where the spec's Testing Decisions define a pre-agreed seam: one failing behavior test, the minimum implementation to pass it, then the next vertical slice. Do not invent or ask the user to approve a new test seam in this Builder context; a missing seam is a spec gap to escalate. Run focused tests and typechecking regularly, then the full suite once at the end. Leave refactoring findings for the independent `/review` gate; if review returns `gaps_found`, fix them in the next `/build` pass.
 
 ## 2. Convention self-review
-Invoke the repo's Builder skills from `skills-manifest.json` (e.g. `react-native-skills`, `supabase-postgres-best-practices`) and check the diff against them. Fix what they surface.
+Check the diff against the stack rule skills listed under **Skills for this run** at the end of this prompt (if any). Fix what they surface.
 
 ## 3. Quality gates — mandatory
 Run and paste real output for the repo's gates (detect from `package.json`/Makefile):
@@ -33,7 +35,7 @@ Run and paste real output for the repo's gates (detect from `package.json`/Makef
 Both must pass.
 
 ## 4. Escalation rule
-If a gate fails and you cannot make it pass within **two** focused attempts, **STOP**. Do not thrash. Write a short blocker note into the spec file (what failed, what you tried), leave the status `building` (do **not** advance it to `review`), and report:
+When a gate fails, first work it with the `diagnosing-bugs` skill: reproduce, minimise, hypothesise, then fix. Guessing at fixes is not an attempt. If you cannot make it pass within **two** diagnosed attempts, **STOP**. Do not thrash. Write a short blocker note into the spec file (what failed, what you tried), leave the status `building` (do **not** advance it to `review`), and report:
 > Escalating $ARGUMENTS. Run `role-router run escalation $ARGUMENTS`; the configured Escalation Adapter determines its authentication and billing.
 
 This caps the rework tax of a cheap Engine (ADR-0003).

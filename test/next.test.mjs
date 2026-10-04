@@ -87,3 +87,10 @@ test('a stopped build with a handoff is resumed before new work', async () => {
   assert.equal(r.task, 'TASK-001');
   assert.equal(r.stop, 'passed');
 });
+
+test('a builder that flags a sketch deviation (human_needed) stops the loop before review', async () => {
+  reset(); const root = repo();
+  const r = await runNext({ root, dispatch: scripted(root, { builder: 'human_needed' }) });
+  assert.equal(r.stop, 'human_needed');
+  assert.deepEqual(scripted.calls, ['builder']);
+});
