@@ -25,7 +25,7 @@ For each subsystem in scope, trace and write down briefly:
 - the existing seams (interfaces, tests) the feature can attach to,
 - the conventions it follows (file layout, error handling, state management).
 
-Read the domain glossary (`GLOSSARY.md`, or `CONTEXT.md` in older repos) and the ADRs. If the feature changes ownership or layering of existing code, use the `why` skill (if listed below) to recover why it is shaped that way, so that rationale becomes a constraint rather than a guess.
+Read the domain glossary (`GLOSSARY.md`, or `CONTEXT.md` in older repos) and the ADRs. If the feature changes ownership or layering of existing code, recover why it is shaped that way before changing it: `git log -L`/`git blame` on the key lines, the ADRs, and the linked issues or PRs. That rationale becomes a constraint, not a guess. When the history is deep or contested, suggest the user run `/why` on it.
 
 Keep the result as a short **Grounding** section; it goes into the spec.
 

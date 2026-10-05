@@ -1,6 +1,6 @@
 {
   "version": 2,
-  "_comment": "Skills this workflow uses, by group. Bodies are not vendored: each entry points at its upstream source. `use` says who calls it: a role (architect, builder, escalation, review, docs) through skills-manifest.json, or `human` for skills you invoke yourself (`invocation: user` means the model cannot load it). Install targets Claude Code, Codex and OpenCode together.",
+  "_comment": "Skills this workflow uses, by group. Bodies are not vendored: each entry points at its upstream source. `use` says who calls it: a role (architect, builder, escalation, review, docs) through skills-manifest.json, or `human` for skills you invoke yourself (`invocation: user` means the model cannot load it). Install targets Claude Code, Codex and OpenCode together. Stack-specific rule skills are intentionally excluded.",
   "agents": [
     "claude-code",
     "codex",
@@ -59,14 +59,6 @@
           "source": "mattpocock/skills",
           "license": "MIT",
           "description": "Primary-source research written to a Markdown file in the repo."
-        },
-        {
-          "name": "why",
-          "use": "architect",
-          "invocation": "model",
-          "source": "cursor/plugins",
-          "license": "see repo",
-          "description": "Recover the rationale behind existing code from history, issues and docs."
         },
         {
           "name": "wayfinder",
@@ -128,22 +120,6 @@
           "source": "mattpocock/skills",
           "license": "MIT",
           "description": "After a session: improve the agent's environment, not the code."
-        },
-        {
-          "name": "blast-radius",
-          "use": "human",
-          "invocation": "user",
-          "source": "cursor/plugins",
-          "license": "see repo",
-          "description": "Find what a change breaks beyond the diff and prove the safety fact by running code."
-        },
-        {
-          "name": "create-verification-skill",
-          "use": "human",
-          "invocation": "user",
-          "source": "cursor/plugins",
-          "license": "see repo",
-          "description": "Generate a project-local skill that drives the real app end to end."
         }
       ]
     },
@@ -184,103 +160,6 @@
         }
       ]
     },
-    "stack-mobile": {
-      "label": "Stack rules · mobile",
-      "skills": [
-        {
-          "name": "react-native-skills",
-          "use": "builder",
-          "invocation": "model",
-          "source": "vercel-labs/agent-skills",
-          "skill_id": "vercel-react-native-skills",
-          "license": "MIT",
-          "description": "React Native and Expo performance and best-practice rules."
-        },
-        {
-          "name": "flutter-coding-rules",
-          "use": "builder",
-          "invocation": "model",
-          "source": "local",
-          "license": "yours",
-          "description": "Dart/Flutter coding standards (first-party, not published)."
-        },
-        {
-          "name": "flutter-performance",
-          "use": "builder",
-          "invocation": "model",
-          "source": "hoangnguyen0403/agent-skills-standard",
-          "license": "see repo",
-          "description": "Flutter rebuild and memory optimisation rules."
-        },
-        {
-          "name": "flutter-security",
-          "use": "builder",
-          "invocation": "model",
-          "source": "hoangnguyen0403/agent-skills-standard",
-          "license": "see repo",
-          "description": "OWASP Mobile rules for Flutter."
-        },
-        {
-          "name": "swiftui-expert-skill",
-          "use": "builder",
-          "invocation": "model",
-          "source": "local",
-          "license": "see source",
-          "description": "SwiftUI state, composition and performance rules."
-        },
-        {
-          "name": "In-App Purchases",
-          "use": "builder",
-          "invocation": "model",
-          "source": "openclaw/skills",
-          "skill_id": "in-app-purchases",
-          "license": "MIT-0 (unverified)",
-          "description": "IAP and subscriptions across iOS, Android and Flutter."
-        }
-      ]
-    },
-    "stack-backend": {
-      "label": "Stack rules · backend",
-      "skills": [
-        {
-          "name": "supabase",
-          "use": "builder",
-          "invocation": "model",
-          "source": "supabase/agent-skills",
-          "license": "Apache-2.0",
-          "description": "Supabase database, auth, edge functions, RLS."
-        },
-        {
-          "name": "supabase-postgres-best-practices",
-          "use": "builder",
-          "invocation": "model",
-          "source": "supabase/agent-skills",
-          "license": "Apache-2.0",
-          "description": "Postgres query, schema and index rules."
-        },
-        {
-          "name": "firebase-basics",
-          "use": "builder",
-          "invocation": "model",
-          "source": "firebase/agent-skills",
-          "license": "see repo",
-          "description": "Firebase CLI, project setup and config files."
-        }
-      ]
-    },
-    "stack-ui": {
-      "label": "Stack rules · UI",
-      "skills": [
-        {
-          "name": "ui-ux-pro-max",
-          "use": "builder",
-          "invocation": "model",
-          "source": "nextlevelbuilder/ui-ux-pro-max-skill",
-          "license": "MIT",
-          "description": "UI/UX styles, palettes, typography and UX guidelines (large: load only for UI tasks)."
-        }
-      ]
-    },
     "meta": {
       "label": "Meta · skill tooling",
       "skills": [
@@ -291,6 +170,200 @@
           "source": "vercel-labs/skills",
           "license": "MIT",
           "description": "Discover installable skills."
+        }
+      ]
+    },
+    "pstack": {
+      "label": "pstack · design, investigation, verification (you invoke these)",
+      "skills": [
+        {
+          "name": "architect",
+          "use": "human",
+          "invocation": "user",
+          "source": "cursor/plugins",
+          "license": "MIT",
+          "description": "Sketch types and module structure before code; design twice via arena; implement against the sketch."
+        },
+        {
+          "name": "arena",
+          "use": "human",
+          "invocation": "user",
+          "source": "cursor/plugins",
+          "license": "MIT",
+          "description": "Fan out N candidates at one task, pick a base, graft the best of the rest."
+        },
+        {
+          "name": "interrogate",
+          "use": "human",
+          "invocation": "user",
+          "source": "cursor/plugins",
+          "license": "MIT",
+          "description": "Adversarial multi-model review of a change; synthesised verdict."
+        },
+        {
+          "name": "how",
+          "use": "human",
+          "invocation": "user",
+          "source": "cursor/plugins",
+          "license": "MIT",
+          "description": "How a subsystem works: traced runtime flow, ownership, placement."
+        },
+        {
+          "name": "why",
+          "use": "human",
+          "invocation": "user",
+          "source": "cursor/plugins",
+          "license": "MIT",
+          "description": "Why code is shaped the way it is, from history, issues and docs."
+        },
+        {
+          "name": "blast-radius",
+          "use": "human",
+          "invocation": "user",
+          "source": "cursor/plugins",
+          "license": "MIT",
+          "description": "What a change breaks beyond the diff; prove the safety fact by running code."
+        },
+        {
+          "name": "create-verification-skill",
+          "use": "human",
+          "invocation": "user",
+          "source": "cursor/plugins",
+          "license": "MIT",
+          "description": "Generate a project-local skill that drives the real app end to end."
+        },
+        {
+          "name": "maintain-verification-skill",
+          "use": "human",
+          "invocation": "user",
+          "source": "cursor/plugins",
+          "license": "MIT",
+          "description": "Keep a generated verification skill's feature map honest."
+        },
+        {
+          "name": "unslop",
+          "use": "human",
+          "invocation": "user",
+          "source": "cursor/plugins",
+          "license": "MIT",
+          "description": "Strip AI-sounding prose from writing (used by blast-radius write-ups)."
+        }
+      ]
+    },
+    "principles": {
+      "label": "pstack principles (cited by architect, arena and poteto-mode)",
+      "skills": [
+        {
+          "name": "principle-boundary-discipline",
+          "use": "human",
+          "invocation": "user",
+          "source": "cursor/plugins",
+          "license": "MIT",
+          "description": "Principle: boundary discipline."
+        },
+        {
+          "name": "principle-encode-lessons-in-structure",
+          "use": "human",
+          "invocation": "user",
+          "source": "cursor/plugins",
+          "license": "MIT",
+          "description": "Principle: encode lessons in structure."
+        },
+        {
+          "name": "principle-exhaust-the-design-space",
+          "use": "human",
+          "invocation": "user",
+          "source": "cursor/plugins",
+          "license": "MIT",
+          "description": "Principle: exhaust the design space."
+        },
+        {
+          "name": "principle-fix-root-causes",
+          "use": "human",
+          "invocation": "user",
+          "source": "cursor/plugins",
+          "license": "MIT",
+          "description": "Principle: fix root causes."
+        },
+        {
+          "name": "principle-foundational-thinking",
+          "use": "human",
+          "invocation": "user",
+          "source": "cursor/plugins",
+          "license": "MIT",
+          "description": "Principle: foundational thinking."
+        },
+        {
+          "name": "principle-guard-the-context-window",
+          "use": "human",
+          "invocation": "user",
+          "source": "cursor/plugins",
+          "license": "MIT",
+          "description": "Principle: guard the context window."
+        },
+        {
+          "name": "principle-laziness-protocol",
+          "use": "human",
+          "invocation": "user",
+          "source": "cursor/plugins",
+          "license": "MIT",
+          "description": "Principle: laziness protocol."
+        },
+        {
+          "name": "principle-make-operations-idempotent",
+          "use": "human",
+          "invocation": "user",
+          "source": "cursor/plugins",
+          "license": "MIT",
+          "description": "Principle: make operations idempotent."
+        },
+        {
+          "name": "principle-minimize-reader-load",
+          "use": "human",
+          "invocation": "user",
+          "source": "cursor/plugins",
+          "license": "MIT",
+          "description": "Principle: minimize reader load."
+        },
+        {
+          "name": "principle-outcome-oriented-execution",
+          "use": "human",
+          "invocation": "user",
+          "source": "cursor/plugins",
+          "license": "MIT",
+          "description": "Principle: outcome oriented execution."
+        },
+        {
+          "name": "principle-prove-it-works",
+          "use": "human",
+          "invocation": "user",
+          "source": "cursor/plugins",
+          "license": "MIT",
+          "description": "Principle: prove it works."
+        },
+        {
+          "name": "principle-redesign-from-first-principles",
+          "use": "human",
+          "invocation": "user",
+          "source": "cursor/plugins",
+          "license": "MIT",
+          "description": "Principle: redesign from first principles."
+        },
+        {
+          "name": "principle-separate-before-serializing-shared-state",
+          "use": "human",
+          "invocation": "user",
+          "source": "cursor/plugins",
+          "license": "MIT",
+          "description": "Principle: separate before serializing shared state."
+        },
+        {
+          "name": "principle-subtract-before-you-add",
+          "use": "human",
+          "invocation": "user",
+          "source": "cursor/plugins",
+          "license": "MIT",
+          "description": "Principle: subtract before you add."
         }
       ]
     }

@@ -339,16 +339,16 @@ This is a binding change only; the `/plan`, `/build`, `/review`, `/docs`, and fa
 
 ## Skills
 
-Each role run is **handed its skills by dispatch**, not left to guess. [`skills-manifest.json`](skills-manifest.json) lists per Role a few core skills, stack rules, and optional extras; dispatch detects the repo's stack (Expo/React Native, Flutter, Supabase, Firebase, iOS), keeps only skills the target agent can actually read, caps the set at 6, and appends their `SKILL.md` paths to the prompt. Paths work the same on Claude Code, Codex and OpenCode.
+Each role run is **handed its skills by dispatch**, not left to guess. [`skills-manifest.json`](skills-manifest.json) lists per Role a few core skills, stack rules, and optional extras; dispatch can add stack rules per detected stack (none are configured by default), keeps only skills the target agent can actually read, caps the set at 6, and appends their `SKILL.md` paths to the prompt. Paths work the same on Claude Code, Codex and OpenCode.
 
 | Role | Core | Plus |
 |---|---|---|
-| Architect | `grilling`, `domain-modeling`, `codebase-design` | `prototype`, `research`, `why` |
-| Builder | `tdd`, `diagnosing-bugs` | stack rules |
-| Review | `code-review` | stack rules |
+| Architect | `grilling`, `domain-modeling`, `codebase-design` | `prototype`, `research` |
+| Builder | `tdd`, `diagnosing-bugs` | |
+| Review | `code-review` | |
 | Docs | `pr` | |
 
-Rules: a role only gets skills the model is allowed to load. User-only skills (`wayfinder`, `blast-radius`, `interrogate`, `to-spec`, `to-tickets`, ...) are never called by a role; the role prompt tells *you* when to run them.
+Rules: a role only gets skills the model is allowed to load. User-only skills (`wayfinder`, `how`, `why`, `architect`, `arena`, `blast-radius`, `interrogate`, `to-spec`, `to-tickets`, ...) are never called by a role; the role prompt tells *you* when to run them.
 
 [`catalog/`](catalog/README.md) lists every skill this workflow uses with its upstream source; it is generated from [`catalog/skills.json`](catalog/skills.json).
 

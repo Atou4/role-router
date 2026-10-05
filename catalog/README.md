@@ -19,7 +19,6 @@ Installs go to Claude Code, Codex and OpenCode together (`claude-code, codex, op
 | codebase-design | architect | model | `mattpocock/skills` | MIT | Deep-module vocabulary: seams, interface depth, information hiding. |
 | prototype | architect | model | `mattpocock/skills` | MIT | Throwaway prototype to answer a behaviour or UI question by seeing it. |
 | research | architect | model | `mattpocock/skills` | MIT | Primary-source research written to a Markdown file in the repo. |
-| why | architect | model | `cursor/plugins` | see repo | Recover the rationale behind existing code from history, issues and docs. |
 | wayfinder | human | you | `mattpocock/skills` | MIT | Chart work too large for one session as a map of investigation tickets. |
 | improve-codebase-architecture | human | you | `mattpocock/skills` | MIT | Find deepening opportunities and grill through the one you pick. |
 
@@ -31,8 +30,6 @@ Installs go to Claude Code, Codex and OpenCode together (`claude-code, codex, op
 | code-review | review | model | `mattpocock/skills` | MIT | Standards and Spec axes reviewed independently. |
 | pr | docs | model | `mattpocock/skills` | MIT | PR body: summary visual, before/after evidence, merge-danger call. |
 | retro | human | you | `mattpocock/skills` | MIT | After a session: improve the agent's environment, not the code. |
-| blast-radius | human | you | `cursor/plugins` | see repo | Find what a change breaks beyond the diff and prove the safety fact by running code. |
-| create-verification-skill | human | you | `cursor/plugins` | see repo | Generate a project-local skill that drives the real app end to end. |
 
 ## Issue-tracker flow (optional; Role Router itself uses PLAN.md)
 | Skill | Use | Loaded by | Source | License | What it does |
@@ -42,32 +39,41 @@ Installs go to Claude Code, Codex and OpenCode together (`claude-code, codex, op
 | triage | human | you | `mattpocock/skills` | MIT | Move issues through triage states and write agent-ready briefs. |
 | setup-matt-pocock-skills | human | you | `mattpocock/skills` | MIT | Configure tracker, labels and doc layout for the tracker skills. |
 
-## Stack rules · mobile
-| Skill | Use | Loaded by | Source | License | What it does |
-|---|---|---|---|---|---|
-| react-native-skills | builder | model | `vercel-labs/agent-skills` | MIT | React Native and Expo performance and best-practice rules. |
-| flutter-coding-rules | builder | model | `local` | yours | Dart/Flutter coding standards (first-party, not published). |
-| flutter-performance | builder | model | `hoangnguyen0403/agent-skills-standard` | see repo | Flutter rebuild and memory optimisation rules. |
-| flutter-security | builder | model | `hoangnguyen0403/agent-skills-standard` | see repo | OWASP Mobile rules for Flutter. |
-| swiftui-expert-skill | builder | model | `local` | see source | SwiftUI state, composition and performance rules. |
-| In-App Purchases | builder | model | `openclaw/skills` | MIT-0 (unverified) | IAP and subscriptions across iOS, Android and Flutter. |
-
-## Stack rules · backend
-| Skill | Use | Loaded by | Source | License | What it does |
-|---|---|---|---|---|---|
-| supabase | builder | model | `supabase/agent-skills` | Apache-2.0 | Supabase database, auth, edge functions, RLS. |
-| supabase-postgres-best-practices | builder | model | `supabase/agent-skills` | Apache-2.0 | Postgres query, schema and index rules. |
-| firebase-basics | builder | model | `firebase/agent-skills` | see repo | Firebase CLI, project setup and config files. |
-
-## Stack rules · UI
-| Skill | Use | Loaded by | Source | License | What it does |
-|---|---|---|---|---|---|
-| ui-ux-pro-max | builder | model | `nextlevelbuilder/ui-ux-pro-max-skill` | MIT | UI/UX styles, palettes, typography and UX guidelines (large: load only for UI tasks). |
-
 ## Meta · skill tooling
 | Skill | Use | Loaded by | Source | License | What it does |
 |---|---|---|---|---|---|
 | find-skills | human | model | `vercel-labs/skills` | MIT | Discover installable skills. |
+
+## pstack · design, investigation, verification (you invoke these)
+| Skill | Use | Loaded by | Source | License | What it does |
+|---|---|---|---|---|---|
+| architect | human | you | `cursor/plugins` | MIT | Sketch types and module structure before code; design twice via arena; implement against the sketch. |
+| arena | human | you | `cursor/plugins` | MIT | Fan out N candidates at one task, pick a base, graft the best of the rest. |
+| interrogate | human | you | `cursor/plugins` | MIT | Adversarial multi-model review of a change; synthesised verdict. |
+| how | human | you | `cursor/plugins` | MIT | How a subsystem works: traced runtime flow, ownership, placement. |
+| why | human | you | `cursor/plugins` | MIT | Why code is shaped the way it is, from history, issues and docs. |
+| blast-radius | human | you | `cursor/plugins` | MIT | What a change breaks beyond the diff; prove the safety fact by running code. |
+| create-verification-skill | human | you | `cursor/plugins` | MIT | Generate a project-local skill that drives the real app end to end. |
+| maintain-verification-skill | human | you | `cursor/plugins` | MIT | Keep a generated verification skill's feature map honest. |
+| unslop | human | you | `cursor/plugins` | MIT | Strip AI-sounding prose from writing (used by blast-radius write-ups). |
+
+## pstack principles (cited by architect, arena and poteto-mode)
+| Skill | Use | Loaded by | Source | License | What it does |
+|---|---|---|---|---|---|
+| principle-boundary-discipline | human | you | `cursor/plugins` | MIT | Principle: boundary discipline. |
+| principle-encode-lessons-in-structure | human | you | `cursor/plugins` | MIT | Principle: encode lessons in structure. |
+| principle-exhaust-the-design-space | human | you | `cursor/plugins` | MIT | Principle: exhaust the design space. |
+| principle-fix-root-causes | human | you | `cursor/plugins` | MIT | Principle: fix root causes. |
+| principle-foundational-thinking | human | you | `cursor/plugins` | MIT | Principle: foundational thinking. |
+| principle-guard-the-context-window | human | you | `cursor/plugins` | MIT | Principle: guard the context window. |
+| principle-laziness-protocol | human | you | `cursor/plugins` | MIT | Principle: laziness protocol. |
+| principle-make-operations-idempotent | human | you | `cursor/plugins` | MIT | Principle: make operations idempotent. |
+| principle-minimize-reader-load | human | you | `cursor/plugins` | MIT | Principle: minimize reader load. |
+| principle-outcome-oriented-execution | human | you | `cursor/plugins` | MIT | Principle: outcome oriented execution. |
+| principle-prove-it-works | human | you | `cursor/plugins` | MIT | Principle: prove it works. |
+| principle-redesign-from-first-principles | human | you | `cursor/plugins` | MIT | Principle: redesign from first principles. |
+| principle-separate-before-serializing-shared-state | human | you | `cursor/plugins` | MIT | Principle: separate before serializing shared state. |
+| principle-subtract-before-you-add | human | you | `cursor/plugins` | MIT | Principle: subtract before you add. |
 
 ## Obsolete
 - `to-prd`: renamed to-spec upstream

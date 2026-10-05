@@ -1,37 +1,44 @@
 {
   "version": 2,
-  "_comment": "Skills each Role run is handed by dispatch (lib/skills.mjs). Rules: only model-loadable skills, at most maxSkills per run, stack rules only when the repo uses that stack. User-only skills (wayfinder, how, blast-radius, interrogate, to-spec, to-tickets) are never called from a role; role prompts tell the human when to run them.",
+  "_comment": "Skills each Role run is handed by dispatch (lib/skills.mjs). Rules: only model-loadable skills, at most maxSkills per run, stack rules only when the repo uses that stack. User-only skills (wayfinder, how, why, blast-radius, interrogate, to-spec, to-tickets) are never called from a role; role prompts tell the human when to run them. Stack-specific rule skills (Flutter, Supabase, React Native, ...) are deliberately not part of this setup; add a stacks entry to bring one back.",
   "maxSkills": 6,
   "roles": {
     "architect": {
-      "core": ["grilling", "domain-modeling", "codebase-design"],
-      "optional": ["prototype", "research", "why"]
+      "core": [
+        "grilling",
+        "domain-modeling",
+        "codebase-design"
+      ],
+      "optional": [
+        "prototype",
+        "research"
+      ]
     },
-    "builder": { "core": ["tdd", "diagnosing-bugs"], "stackRules": true },
-    "escalation": { "core": ["diagnosing-bugs", "codebase-design"], "stackRules": true },
-    "review": { "core": ["code-review"], "stackRules": true },
-    "docs": { "core": ["pr"] }
-  },
-  "stacks": {
-    "expo-react-native": {
-      "detect": [{ "file": "package.json", "contains": ["\"react-native\"", "\"expo\""] }],
-      "skills": ["react-native-skills"]
+    "builder": {
+      "core": [
+        "tdd",
+        "diagnosing-bugs"
+      ],
+      "stackRules": true
     },
-    "flutter": {
-      "detect": [{ "file": "pubspec.yaml" }],
-      "skills": ["flutter-coding-rules", "flutter-performance", "flutter-security"]
+    "escalation": {
+      "core": [
+        "diagnosing-bugs",
+        "codebase-design"
+      ],
+      "stackRules": true
     },
-    "supabase": {
-      "detect": [{ "dir": "supabase" }, { "file": "package.json", "contains": ["@supabase/"] }],
-      "skills": ["supabase", "supabase-postgres-best-practices"]
+    "review": {
+      "core": [
+        "code-review"
+      ],
+      "stackRules": true
     },
-    "firebase": {
-      "detect": [{ "file": "firebase.json" }, { "file": ".firebaserc" }],
-      "skills": ["firebase-basics"]
-    },
-    "ios-swift": {
-      "detect": [{ "suffix": ".xcodeproj" }, { "file": "Package.swift" }],
-      "skills": ["swiftui-expert-skill"]
+    "docs": {
+      "core": [
+        "pr"
+      ]
     }
-  }
+  },
+  "stacks": {}
 }
