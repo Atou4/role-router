@@ -33,6 +33,7 @@ test('codex: transient 429 retries, other failures crash', () => {
   assert.equal(classify(codex, ['{"type":"error","message":"429 Too Many Requests"}'], 1).kind, 'rate_limited');
   assert.equal(classify(codex, ['{"type":"error","message":"boom"}'], 1).kind, 'crashed');
   assert.equal(classify(codex, [], 1).kind, 'crashed');
+  assert.equal(classify(codex, [], 0).kind, 'rate_limited');
 });
 
 test('reset text parsing', () => {
@@ -79,4 +80,11 @@ test('account-level failures are "unavailable" on every agent, not crashes', () 
   assert.equal(classify(codex, ['{"type":"turn.failed","error":{"message":"401 Unauthorized"}}'], 1).kind, 'unavailable');
   assert.equal(classify(claude, ['{"type":"result","is_error":true,"result":"Invalid API key · Please run /login"}'], 1).kind, 'unavailable');
   assert.equal(classify(codex, ['{"type":"turn.failed","error":{"message":"segfault"}}'], 1).kind, 'crashed');
+});
+
+test('an agent that exits 0 without producing a result is transient (retried), a non-zero exit is a crash', () => {
+  assert.equal(classify(claude, ['{"type":"system","subtype":"init","session_id":"s"}'], 0).kind, 'rate_limited');
+  assert.equal(classify(claude, ['{"type":"system","subtype":"init","session_id":"s"}'], 1).kind, 'crashed');
+  assert.equal(classify(codex, ['{"type":"thread.started","thread_id":"t"}'], 0).kind, 'rate_limited');
+  assert.equal(classify(codex, ['{"type":"thread.started","thread_id":"t"}'], 1).kind, 'crashed');
 });

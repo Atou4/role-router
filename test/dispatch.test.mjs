@@ -15,6 +15,7 @@ const SCRIPTS = {
   ok: `console.log(JSON.stringify({type:'item.completed',item:{type:'agent_message',text:'done'}}));console.log('{"type":"turn.completed","usage":{"input_tokens":1,"output_tokens":1}}')`,
   limit: `${'{SESSION}'}console.log(JSON.stringify({type:'turn.failed',error:{message:"You've hit your usage limit. Try again in 2 hours."}}));process.exit(1)`,
   crash: `process.exit(2)`,
+  hang: `setTimeout(() => {}, 60000)`,
   unavailable: `console.log(JSON.stringify({type:'turn.failed',error:{message:'401 Unauthorized: no active subscription'}}));process.exit(1)`,
 };
 const launches = [];
@@ -31,7 +32,7 @@ const config = (roles, profiles) => ({
   accounts: { A: { agent: 'codex' }, B: { agent: 'claude' } },
   profiles: Object.fromEntries(profiles),
   roles,
-  defaults: { cooldownMinutes: 60, transientRetries: 0 },
+  defaults: { cooldownMinutes: 60, transientRetries: 0, runTimeoutMinutes: 30 },
 });
 
 let cwd;
@@ -207,4 +208,14 @@ test('an unavailable account is paused and the chain moves on', async () => {
   assert.equal(out.status, 'ok');
   assert.deepEqual(out.runs.map((r) => r.result.kind), ['unavailable', 'ok']);
   assert.match(accountStates(cfg, t0).find((s) => s.account === 'A').reason, /account unavailable/);
+});
+
+test('a hung agent is stopped at the time limit and the chain moves on', async () => {
+  const cfg = config({ builder: { chain: ['a', 'b'], onTierDrop: 'auto' } }, [profile('a', 'A', 'hang', 'lite'), profile('b', 'B', 'ok', 'lite')]);
+  const started = Date.now();
+  const out = await dispatch(base({ role: 'builder', task: 'TASK-001', timeoutMinutes: 0.02 }), deps(cfg));
+  assert.ok(Date.now() - started < 15000, 'did not wait for the hung process');
+  assert.deepEqual(out.runs.map((r) => r.result.kind), ['rate_limited', 'ok']);
+  assert.match(out.runs[0].result.message, /no result after/);
+  assert.equal(out.status, 'ok');
 });

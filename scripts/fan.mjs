@@ -5,6 +5,7 @@
 //   role-router fan "<prompt>"                       default: one top profile per account
 //   role-router fan --profiles=openai-top,anthropic-top --prompt-file=task.md
 //   role-router fan --worktree ...                   each lane gets its own detached worktree
+//   role-router fan --timeout=5 ...                  minutes per lane before it is stopped (default 10)
 //   role-router fan --list                           show the default lanes
 //
 // Answers land in .role-router/fan/<stamp>/<profile>.md with fan.json as the index.
@@ -31,7 +32,7 @@ try {
   const file = opt('prompt-file');
   const prompt = file ? readFileSync(file, 'utf8') : args.filter((a) => !a.startsWith('--')).join(' ');
   const { out, lanes } = await fan({
-    prompt, profiles, worktree: has('worktree'),
+    prompt, profiles, worktree: has('worktree'), timeoutMinutes: Number(opt('timeout') ?? 10),
     cwd: path.resolve(opt('cwd') || process.cwd()), out: opt('out') && path.resolve(opt('out')),
   });
   for (const l of lanes) console.log(`${l.status === 'ok' ? '✓' : '✗'} ${l.profile.padEnd(16)} ${l.answer ?? `${l.status}: ${l.message ?? ''}`}`);

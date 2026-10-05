@@ -109,7 +109,7 @@ description: Drive the sandbox math library the way a caller does and capture ev
     { id: 'anthropic', agent: 'claude', topModel: 'opus', liteModel: 'sonnet' },
     { id: 'ocgo', agent: 'opencode', provider: 'opencode', liteModel: 'opencode/big-pickle' }, // free model: works without a paid OpenCode plan
   ], { executionOrder: ['anthropic', 'openai', 'ocgo'] });
-  config.defaults.transientRetries = 0;
+  config.defaults.transientRetries = 1;
   writeFileSync(CONFIG, JSON.stringify(config, null, 2) + '\n');
 
   // A fake `claude` that is signed in but out of usage: the only way to exercise a real limit on demand.
@@ -165,7 +165,7 @@ const scenarios = {
   },
 
   fan() {
-    const r = rr(['fan', 'In one sentence: what does it mean for an operation to be idempotent?'], { timeoutMin: 10 });
+    const r = rr(['fan', '--timeout=4', 'In one sentence: what does it mean for an operation to be idempotent?'], { timeoutMin: 15 });
     const index = /index: (.*fan\.json)/.exec(r.out)?.[1];
     const lanes = index ? JSON.parse(readFileSync(index, 'utf8')).lanes : [];
     const answered = lanes.filter((l) => l.status === 'ok' && readFileSync(l.answer, 'utf8').trim().length > 20);
