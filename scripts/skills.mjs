@@ -2,7 +2,7 @@
 
 // role-router skills — keep the skills this workflow uses installed and healthy.
 //
-//   role-router skills doctor                   per-agent check of everything the roles use
+//   role-router skills doctor                   per-agent check of the skills the roles use (read-only)
 //   role-router skills install <group|role|all> [--dry-run]
 //   role-router skills readme                   regenerate catalog/README.md from catalog/skills.json
 
@@ -78,19 +78,20 @@ function doctor() {
     console.log(`  ${role.padEnd(11)} ${r.skills.map((s) => s.name).join(', ') || '-'}${r.stacks.length ? dim(`  [${r.stacks.join(', ')}]`) : ''}${r.dropped.length ? yel(`  over cap: ${r.dropped.join(', ')}`) : ''}`);
   }
 
-  console.log('\nObsolete or replaced');
+  console.log('\nInstalled but not used by Role Router (info only; your machine, your call)');
   let any = false;
   for (const [name, why] of Object.entries(catalog.obsolete)) {
     const where = AGENTS.filter((a) => views[a].has(name));
-    if (where.length) { any = true; flag(`${name} (${why}) still visible to ${where.join(', ')}`); }
+    if (where.length) { any = true; console.log(`  ${dim(`${name}: ${why}`)}`); }
   }
-  if (!any) ok('none installed');
+  if (!any) console.log(`  ${dim('none')}`);
 
-  console.log('\nDiverged copies (same name, different content in ~/.claude and ~/.agents)');
+  console.log('\nDiverged copies of role skills (same name, different content in ~/.claude and ~/.agents)');
   any = false;
-  for (const [name, file] of views.claude) {
+  for (const name of roleSkills) {
+    const file = views.claude.get(name);
     const other = path.join(HOME, '.agents', 'skills', name, 'SKILL.md');
-    if (!existsSync(other) || realpathSync(file) === realpathSync(other)) continue;
+    if (!file || !existsSync(other) || realpathSync(file) === realpathSync(other)) continue;
     if (readFileSync(file, 'utf8') !== readFileSync(other, 'utf8')) { any = true; flag(`${name}: ${file} ≠ ${other}`); }
   }
   if (!any) ok('none');
