@@ -61,6 +61,14 @@
           "description": "Primary-source research written to a Markdown file in the repo."
         },
         {
+          "name": "architect",
+          "use": "human",
+          "invocation": "user",
+          "source": "cursor/plugins",
+          "license": "MIT",
+          "description": "Full design workflow: ground (how/why), sketch types and modules before code, design twice via arena, implement against the sketch, scrap when wrong. /plan embeds its method; run this for designs that need the full multi-candidate treatment."
+        },
+        {
           "name": "wayfinder",
           "use": "human",
           "invocation": "user",
@@ -176,14 +184,6 @@
     "pstack": {
       "label": "pstack · design, investigation, verification (you invoke these)",
       "skills": [
-        {
-          "name": "architect",
-          "use": "human",
-          "invocation": "user",
-          "source": "cursor/plugins",
-          "license": "MIT",
-          "description": "Sketch types and module structure before code; design twice via arena; implement against the sketch."
-        },
         {
           "name": "arena",
           "use": "human",

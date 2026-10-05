@@ -53,6 +53,8 @@ Required whenever the feature adds or changes an interface, a module boundary, a
 4. **Compare on interface depth.** Prefer the design that hides more behind a smaller public surface. Ask what happens if each operation runs twice or crashes halfway.
 5. **Present the chosen design and the strongest rejected alternative** to the user, with your recommendation and one line on why the alternative lost. The user decides.
 
+**Designs this session cannot settle** (several plausible whole shapes, a core abstraction that many tickets will build on, or the user wants more than one model's take): recommend the user run `/architect` on it. That workflow grounds with `how`/`why`, has several candidates designed in parallel through `arena`, and returns a synthesized sketch with its rationale. Bring that sketch back here as the Interface sketch and continue at phase 5.
+
 **High-risk designs** (money, auth, data migrations, cross-repo contracts, concurrency): before ticketing, recommend the user run `/interrogate` on the sketch for an adversarial multi-model review. Wait for their go-ahead either way.
 
 ## 5. Spec

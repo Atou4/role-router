@@ -19,6 +19,7 @@ Installs go to Claude Code, Codex and OpenCode together (`claude-code, codex, op
 | codebase-design | architect | model | `mattpocock/skills` | MIT | Deep-module vocabulary: seams, interface depth, information hiding. |
 | prototype | architect | model | `mattpocock/skills` | MIT | Throwaway prototype to answer a behaviour or UI question by seeing it. |
 | research | architect | model | `mattpocock/skills` | MIT | Primary-source research written to a Markdown file in the repo. |
+| architect | human | you | `cursor/plugins` | MIT | Full design workflow: ground (how/why), sketch types and modules before code, design twice via arena, implement against the sketch, scrap when wrong. /plan embeds its method; run this for designs that need the full multi-candidate treatment. |
 | wayfinder | human | you | `mattpocock/skills` | MIT | Chart work too large for one session as a map of investigation tickets. |
 | improve-codebase-architecture | human | you | `mattpocock/skills` | MIT | Find deepening opportunities and grill through the one you pick. |
 
@@ -47,7 +48,6 @@ Installs go to Claude Code, Codex and OpenCode together (`claude-code, codex, op
 ## pstack · design, investigation, verification (you invoke these)
 | Skill | Use | Loaded by | Source | License | What it does |
 |---|---|---|---|---|---|
-| architect | human | you | `cursor/plugins` | MIT | Sketch types and module structure before code; design twice via arena; implement against the sketch. |
 | arena | human | you | `cursor/plugins` | MIT | Fan out N candidates at one task, pick a base, graft the best of the rest. |
 | interrogate | human | you | `cursor/plugins` | MIT | Adversarial multi-model review of a change; synthesised verdict. |
 | how | human | you | `cursor/plugins` | MIT | How a subsystem works: traced runtime flow, ownership, placement. |
