@@ -15,6 +15,7 @@ const SCRIPTS = {
   ok: `console.log(JSON.stringify({type:'item.completed',item:{type:'agent_message',text:'done'}}));console.log('{"type":"turn.completed","usage":{"input_tokens":1,"output_tokens":1}}')`,
   limit: `${'{SESSION}'}console.log(JSON.stringify({type:'turn.failed',error:{message:"You've hit your usage limit. Try again in 2 hours."}}));process.exit(1)`,
   crash: `process.exit(2)`,
+  unavailable: `console.log(JSON.stringify({type:'turn.failed',error:{message:'401 Unauthorized: no active subscription'}}));process.exit(1)`,
 };
 const launches = [];
 const script = (model) => SCRIPTS[model].replace('{SESSION}', SESSION);
@@ -198,4 +199,12 @@ test('raw chat runs get no skills block', async () => {
   const skills = () => { throw new Error('should not resolve skills for raw prompts'); };
   await dispatch(base({ role: 'builder', task: 'TASK-001', raw: true, message: 'hello' }), deps(cfg, { skills }));
   assert.equal(launches[0].prompt, 'hello');
+});
+
+test('an unavailable account is paused and the chain moves on', async () => {
+  const cfg = config({ builder: { chain: ['a', 'b'], onTierDrop: 'auto' } }, [profile('a', 'A', 'unavailable', 'lite'), profile('b', 'B', 'ok', 'lite')]);
+  const out = await dispatch(base({ role: 'builder', task: 'TASK-001' }), deps(cfg));
+  assert.equal(out.status, 'ok');
+  assert.deepEqual(out.runs.map((r) => r.result.kind), ['unavailable', 'ok']);
+  assert.match(accountStates(cfg, t0).find((s) => s.account === 'A').reason, /account unavailable/);
 });

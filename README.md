@@ -298,7 +298,9 @@ No. If your repo has an `.agent-board/`, the role prompts use its board tool ins
 
 ## Contributing
 
-Issues and PRs welcome. Before adding a command, check it can't be expressed as a role plus a chain change. Keep `GLOSSARY.md` authoritative: define new terms there. Tests: `node --test test/`.
+Issues and PRs welcome. Before adding a command, check it can't be expressed as a role plus a chain change. Keep `GLOSSARY.md` authoritative: define new terms there.
+
+**Tests.** `node --test test/` runs the unit suite in seconds and never launches an agent. `node e2e/run.mjs` is the testing ground: it builds a throwaway sandbox repo with its own config and limits ledger (your `~/.role-router` is never touched) and drives the real CLIs end to end: chains and skills, pstack, tier consent, `fan` on all three agents, a full `next` loop, a simulated usage limit with handoff and fallback, and parallel `fanout`. It spends a little real usage on your accounts; `--only=setup,pstack,tier` runs the free scenarios.
 
 ## License
 

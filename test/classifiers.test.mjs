@@ -71,3 +71,12 @@ test('opencode: 429 retries, quota text is a usage limit, clean exit is ok', () 
   assert.equal(classify(opencode, [err('You have exceeded your plan quota. Try again in 3 hours', 429)], 1).kind, 'usage_limit');
   assert.equal(classify(opencode, ['{"type":"text","part":{"text":"hi"}}']).kind, 'ok');
 });
+
+test('account-level failures are "unavailable" on every agent, not crashes', () => {
+  const oc = (msg, status) => `{"type":"error","error":{"name":"APIError","data":{"message":"${msg}","statusCode":${status}}}}`;
+  assert.equal(classify(opencode, [oc('Upstream request failed: An active OpenCode Go subscription is required to use Go models.', 500)], 1).kind, 'unavailable');
+  assert.equal(classify(opencode, [oc('nope', 401)], 1).kind, 'unavailable');
+  assert.equal(classify(codex, ['{"type":"turn.failed","error":{"message":"401 Unauthorized"}}'], 1).kind, 'unavailable');
+  assert.equal(classify(claude, ['{"type":"result","is_error":true,"result":"Invalid API key · Please run /login"}'], 1).kind, 'unavailable');
+  assert.equal(classify(codex, ['{"type":"turn.failed","error":{"message":"segfault"}}'], 1).kind, 'crashed');
+});
