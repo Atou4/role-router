@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import { mkdirSync, mkdtempSync, writeFileSync } from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
-import { detectStacks, resolveSkills } from '../lib/skills.mjs';
+import { detectStacks, resolveSkills, verificationSkills } from '../lib/skills.mjs';
 
 const manifest = {
   maxSkills: 3,
@@ -51,4 +51,15 @@ test('review and worker resolve to the same manifest entry; unknown roles get no
   const { repo, home } = world({ agentsSkills: ['code-review'] });
   assert.deepEqual(resolveSkills({ role: 'worker', agent: 'codex', repoRoot: repo, manifest: m, home }).skills.map((s) => s.name), ['code-review']);
   assert.deepEqual(resolveSkills({ role: 'nope', agent: 'codex', repoRoot: repo, manifest: m, home }).skills, []);
+});
+
+test("the repo's verify-<app> skill is handed to verification roles by absolute path, from any agent folder", () => {
+  const { repo, home } = world({ files: [['.cursor/skills/verify-shop/SKILL.md', 'x'], ['.claude/skills/not-a-verifier/SKILL.md', 'x']], agentsSkills: ['tdd', 'diagnosing-bugs'] });
+  assert.deepEqual(verificationSkills(repo).map((v) => v.name), ['verify-shop']);
+  const m = { ...manifest, maxSkills: 6, roles: { ...manifest.roles, builder: { ...manifest.roles.builder, verification: true } } };
+  const r = resolveSkills({ role: 'builder', agent: 'codex', repoRoot: repo, manifest: m, home });
+  assert.deepEqual(r.skills.map((s) => [s.name, s.why]), [['tdd', 'core'], ['diagnosing-bugs', 'core'], ['verify-shop', 'repo verification']]);
+  assert.equal(r.skills[2].path, path.join(repo, '.cursor/skills/verify-shop/SKILL.md'));
+  const arch = resolveSkills({ role: 'architect', agent: 'codex', repoRoot: repo, manifest: m, home });
+  assert.ok(!arch.skills.some((s) => s.name === 'verify-shop'));
 });

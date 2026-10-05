@@ -293,6 +293,26 @@ role-router limits clear anthropic
 
  Design: [ADR-0006](docs/adr/0006-account-aware-fallback-chains.md), [dispatch.md](docs/design/dispatch.md).
 
+## Multi-model runs — `role-router fan`
+
+Skills that compare models (`architect`, `arena`, `interrogate`, `how`) need runners on *different* model families. Inside Claude Code a subagent can only be Claude; `fan` runs one prompt on several of your profiles in parallel instead, through the same dispatcher (usage limits and run records included):
+
+```bash
+role-router fan --list                                   # default lanes: one top profile per account
+role-router fan "Review this design: ..."                # one answer per model
+role-router fan --profiles=codex-top,claude-top --prompt-file=task.md
+role-router fan --worktree --prompt-file=candidate.md    # each lane writes in its own detached worktree
+```
+
+Answers land in `.role-router/fan/<stamp>/<profile>.md` with `fan.json` as the index. When one of those skills asks for runners or reviewers on specific models, fill its prompt template into a file and pass it to `fan`, then read every answer before synthesising.
+
+## Verification and retro
+
+- **Repo verification skill.** If a repo has a `verify-<app>` skill (made by `/create-verification-skill`, in `.cursor/`, `.claude/`, `.agents/` or `.opencode/skills/`), dispatch hands it to the Builder, Escalation and Review roles. The Builder must drive the changed feature in the real app and record evidence; Review re-drives at least one user-visible criterion.
+- **Retro.** `role-router next` ends a passed task by suggesting `/retro`; when a task needed more than one review round it says so, so the repeated finding becomes a lint rule, hook or CI check instead of another round.
+
+`.role-router/` in each repo carries its own `.gitignore`, so run state never shows in `git status`.
+
 ## Swapping Engines
 
 Engines are config, not architecture. You have two options:

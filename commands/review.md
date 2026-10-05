@@ -16,6 +16,7 @@ You are the **Worker** doing review. Review the diff, do not change code.
 ## 2. Review
 - Use the `code-review` skill and any stack rule skills listed under **Skills for this run**. Run its Standards and Spec axes independently, including the refactoring-smell baseline, then map any hard failure to the normalized status below.
 - **Interface sketch:** if the spec has one, the diff must implement it as written. A public type, signature, or module boundary that differs from the sketch is a Must-fix unless the spec records an approved change.
+- **Evidence, not claims:** when a repo verification skill (`verify-<app>`) is listed under **Skills for this run**, check that the Builder's evidence exists where it says, then drive at least one user-visible Acceptance Criterion yourself with that skill. A criterion whose evidence is missing or does not reproduce is a Must-fix.
 - **Requirement coverage, not just a diff scan:** go through every Acceptance Criterion / REQ-ID in the spec and confirm the diff actually implements it. A criterion ticked-but-unverified is a Must-fix.
 - Also check: convention violations, obvious correctness or security issues.
 - **Risk flag:** if the diff touches money, auth or permissions, data migrations, a status/enum mapping, or anything another repo reads, add a **Risk** line to the report recommending the user run `/blast-radius` on it before merge. This is a recommendation for the human, not a status change.

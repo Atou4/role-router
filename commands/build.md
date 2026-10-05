@@ -34,6 +34,8 @@ Run and paste real output for the repo's gates (detect from `package.json`/Makef
 
 Both must pass.
 
+**Drive the real app** when a repo verification skill (`verify-<app>`) is listed under **Skills for this run**: follow its Launch and Doctor steps, drive the feature this task changed the way a user would, capture the evidence it prescribes, and run its Cleanup. Paste where the evidence landed. If the feature map has no entry for what you built, add one (`features/<feature>.md`, same four sections as its siblings) so the next run can drive it. Tests passing without this proof is not done when a verification skill exists.
+
 ## 4. Escalation rule
 When a gate fails, first work it with the `diagnosing-bugs` skill: reproduce, minimise, hypothesise, then fix. Guessing at fixes is not an attempt. If you cannot make it pass within **two** diagnosed attempts, **STOP**. Do not thrash. Write a short blocker note into the spec file (what failed, what you tried), leave the status `building` (do **not** advance it to `review`), and report:
 > Escalating $ARGUMENTS. Run `role-router run escalation $ARGUMENTS`; the configured Escalation Adapter determines its authentication and billing.

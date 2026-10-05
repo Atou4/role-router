@@ -94,3 +94,14 @@ test('a builder that flags a sketch deviation (human_needed) stops the loop befo
   assert.equal(r.stop, 'human_needed');
   assert.deepEqual(scripted.calls, ['builder']);
 });
+
+test('passing after more than one review round recommends /retro', async () => {
+  reset(); const root = repo();
+  const dir = path.join(root, '.role-router', 'runs', 'TASK-001');
+  mkdirSync(dir, { recursive: true });
+  for (const n of ['001', '002']) writeFileSync(path.join(dir, `${n}-p.json`), JSON.stringify({ role: 'worker', operation: 'review', result: { kind: 'ok' } }));
+  const r = await runNext({ root, dispatch: scripted(root, { builder: 'review', review: 'passed' }) });
+  assert.equal(r.stop, 'passed');
+  assert.equal(r.retro, true);
+  assert.match(r.message, /2 review rounds: run \/retro/);
+});

@@ -26,7 +26,7 @@ import { createInterface } from 'node:readline';
 import path from 'node:path';
 import { dispatch } from '../lib/dispatch.mjs';
 import { loadConfig } from '../lib/config.mjs';
-import { repoRootFor } from '../lib/runs.mjs';
+import { ensureStateDir, repoRootFor } from '../lib/runs.mjs';
 
 // ── args ────────────────────────────────────────────────────────────────────
 const argv = process.argv.slice(2);
@@ -56,7 +56,7 @@ if (!useWorktree && ids.length > 1) {
 }
 
 const REPO = repoRootFor(process.cwd());
-const WT_ROOT = path.join(REPO, '.role-router', 'worktrees');
+const WT_ROOT = path.join(ensureStateDir(REPO), 'worktrees');
 
 // ── one Builder ───────────────────────────────────────────────────────────────
 function buildOne(id) {
