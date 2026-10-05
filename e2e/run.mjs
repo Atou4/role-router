@@ -44,7 +44,7 @@ function rr(cliArgs, { extraEnv, timeoutMin = 15 } = {}) {
   return { code: r.status, out: (r.stdout ?? '') + (r.stderr ?? ''), secs: Math.round((Date.now() - started) / 1000) };
 }
 const git = (...a) => execFileSync('git', a, { cwd: REPO, encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'] }).trim();
-const status = (id) => /- status:\s*(\S+)/.exec(readFileSync(path.join(REPO, 'PLAN.md'), 'utf8').split(`## ${id}`)[1] ?? '')?.[1];
+const status = (id) => rr(['board', 'status', id]).out.trim();
 const records = (task) => {
   const dir = path.join(REPO, '.role-router', 'runs', task);
   return existsSync(dir) ? readdirSync(dir).filter((f) => /^\d+-.*\.json$/.test(f)).sort().map((f) => JSON.parse(readFileSync(path.join(dir, f), 'utf8'))) : [];
@@ -190,12 +190,13 @@ const scenarios = {
       ['review ran on a different account than the build', Boolean(built && reviewed && built.account !== reviewed.account), `${built?.account} → ${reviewed?.account}`],
       ['run records carry git evidence', recs.every((x) => x.evidence && typeof x.evidence.uncommittedFiles === 'number')],
       ['task branch has a commit and npm test passes on it', testsPass],
+      ['the working tree is clean after the loop (status lives outside git)', !git('status', '--porcelain').includes('PLAN.md')],
       ['builder left verification evidence (.verify/TASK-001.txt)', existsSync(path.join(REPO, '.verify', 'TASK-001.txt')), 'soft check: prompt-driven'],
     ];
   },
 
   limit() {
-    try { git('checkout', '-q', 'main'); } catch { /* already there */ }
+    git('checkout', '-q', 'main');
     const r = rr(['run', 'builder', 'TASK-002', '--headless'], { extraEnv: { PATH: `${SHIM}:${process.env.PATH}` }, timeoutMin: 20 });
     const recs = records('TASK-002');
     const ledger = JSON.parse(readFileSync(path.join(STATE, 'accounts.json'), 'utf8'));
@@ -212,13 +213,15 @@ const scenarios = {
   },
 
   fanout() {
-    try { git('checkout', '-q', 'main'); } catch { /* already there */ }
+    git('checkout', '-q', 'main');
     const r = rr(['fanout', '--yes', '--base=main', 'TASK-003', 'TASK-004'], { timeoutMin: 30 });
     const wt = (id) => path.join(REPO, '.role-router', 'worktrees', id);
     const ok = (id) => existsSync(path.join(wt(id), '.git')) && records(id).some((x) => x.result.kind === 'ok');
     return [
       ['fanout exits 0', r.code === 0, r.out.trim().split('\n').slice(-6).join(' | ')],
       ['each task built in its own worktree', ok('TASK-003') && ok('TASK-004')],
+      ['the main board sees both tasks in review', status('TASK-003') === 'review' && status('TASK-004') === 'review', `TASK-003 ${status('TASK-003')}, TASK-004 ${status('TASK-004')}`],
+      ['no worktree left a dirty PLAN.md', ['TASK-003', 'TASK-004'].every((id) => !execFileSync('git', ['status', '--porcelain'], { cwd: wt(id), encoding: 'utf8' }).includes('PLAN.md'))],
       ['both task branches exist', ['task/TASK-003', 'task/TASK-004'].every((b) => { try { git('rev-parse', '--verify', b); return true; } catch { return false; } })],
     ];
   },
