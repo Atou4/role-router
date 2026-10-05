@@ -1,22 +1,88 @@
 {
   "version": 2,
   "accounts": {
-    "openai":    { "agent": "codex" },
-    "anthropic": { "agent": "claude" },
-    "zai":       { "agent": "opencode", "provider": "zai-coding-plan", "keyEnv": "ZAI_API_KEY" }
+    "openai": {
+      "agent": "codex"
+    },
+    "anthropic": {
+      "agent": "claude"
+    },
+    "zai": {
+      "agent": "opencode",
+      "provider": "zai-coding-plan",
+      "keyEnv": "ZAI_API_KEY"
+    }
   },
   "profiles": {
-    "codex-top":  { "account": "openai",    "model": "gpt-6-sol",  "tier": "top" },
-    "codex-lite": { "account": "openai",    "model": "gpt-6-luna", "tier": "lite" },
-    "claude-top": { "account": "anthropic", "model": "opus",       "tier": "top" },
-    "claude-mid": { "account": "anthropic", "model": "sonnet",     "tier": "lite" },
-    "glm":        { "account": "zai",       "model": "zai-coding-plan/glm-4.7", "tier": "lite" }
+    "openai-top": {
+      "account": "openai",
+      "model": "gpt-6-sol",
+      "tier": "top"
+    },
+    "openai-lite": {
+      "account": "openai",
+      "model": "gpt-6-luna",
+      "tier": "lite"
+    },
+    "anthropic-top": {
+      "account": "anthropic",
+      "model": "opus",
+      "tier": "top"
+    },
+    "anthropic-lite": {
+      "account": "anthropic",
+      "model": "sonnet",
+      "tier": "lite"
+    },
+    "zai-lite": {
+      "account": "zai",
+      "model": "zai-coding-plan/glm-4.7",
+      "tier": "lite"
+    }
   },
   "roles": {
-    "architect":  { "chain": ["codex-top", "claude-top", "codex-lite", "claude-mid"], "onTierDrop": "ask" },
-    "builder":    { "chain": ["claude-mid", "codex-lite", "glm"], "onTierDrop": "auto" },
-    "worker":     { "chain": ["codex-lite", "claude-mid", "glm"], "onTierDrop": "auto", "avoidBuilderAccount": true, "onSameAccountReview": "ask" },
-    "escalation": { "chain": ["claude-top", "codex-top"], "onTierDrop": "ask" }
+    "architect": {
+      "chain": [
+        "openai-top",
+        "anthropic-top",
+        "anthropic-lite",
+        "openai-lite",
+        "zai-lite"
+      ],
+      "onTierDrop": "ask"
+    },
+    "builder": {
+      "chain": [
+        "anthropic-lite",
+        "openai-lite",
+        "zai-lite",
+        "anthropic-top",
+        "openai-top"
+      ],
+      "onTierDrop": "auto"
+    },
+    "worker": {
+      "chain": [
+        "anthropic-lite",
+        "openai-lite",
+        "zai-lite",
+        "anthropic-top",
+        "openai-top"
+      ],
+      "onTierDrop": "auto",
+      "avoidBuilderAccount": true,
+      "onSameAccountReview": "ask"
+    },
+    "escalation": {
+      "chain": [
+        "openai-top",
+        "anthropic-top"
+      ],
+      "onTierDrop": "ask"
+    }
   },
-  "defaults": { "cooldownMinutes": 60, "transientRetries": 2 }
+  "defaults": {
+    "cooldownMinutes": 60,
+    "transientRetries": 2
+  }
 }

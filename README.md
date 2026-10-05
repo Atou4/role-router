@@ -2,309 +2,190 @@
 
 # Role Router
 
-**Orchestrate your paid coding agents — Codex, Claude Code, OpenCode — by the role each piece of work needs.**
+**A personal orchestrator for your paid coding agents: Codex, Claude Code and OpenCode.**
 
-Plan on top-tier models, execute on lighter ones, across whichever paid plans you hold. Drops into any repo and keeps authentication boundaries explicit.
+Plan on top-tier models, build on lighter ones, fall through to another account when one hits its usage limit, and review on a different vendor than the one that built it. Works in any repo; your sign-ins never leave their own CLIs.
 
-[![Codex](https://img.shields.io/badge/harness-Codex-111)](https://developers.openai.com/codex/)
-[![Claude Code](https://img.shields.io/badge/harness-Claude%20Code-d97757)](https://claude.com/claude-code)
-[![OpenCode](https://img.shields.io/badge/API%20harness-OpenCode-111)](https://opencode.ai/)
-[![Shell](https://img.shields.io/badge/install-bash-4EAA25?logo=gnubash&logoColor=white)](install.sh)
+[![Codex](https://img.shields.io/badge/agent-Codex-111)](https://developers.openai.com/codex/)
+[![Claude Code](https://img.shields.io/badge/agent-Claude%20Code-d97757)](https://claude.com/claude-code)
+[![OpenCode](https://img.shields.io/badge/agent-OpenCode-111)](https://opencode.ai/)
+[![Node](https://img.shields.io/badge/node-%E2%89%A518-339933?logo=node.js&logoColor=white)](https://nodejs.org)
 [![Status](https://img.shields.io/badge/status-active-success)](#)
 
 </div>
 
-> **The one rule:** _route on **roles**, not models._ Today's cheap coder is replaced in months — bind each role to a swappable **Engine** and the workflow never changes. ([ADR-0001](docs/adr/0001-roles-not-engines.md))
+> **The one rule:** _route on **roles**, not models._ Models change every few months; each role is bound to a swappable chain of your accounts and the workflow never changes. ([ADR-0001](docs/adr/0001-roles-not-engines.md))
 
 ```
-   Codex CLI (Plus/Pro)               OpenCode → Z.AI / OpenRouter
-   ┌────────────────┐                 ┌──────────────────────────────────┐
-   │ Architect      │  ── task file → │ Builder  →  Worker  →  Worker    │
-   │ /plan          │   (Handoff      │ /build     /review    /docs      │
-   │ subscription   │    Artifact)    │ API key     API key    API key    │
-   └────────────────┘                 └──────────────────────────────────┘
+                 ┌──────────── Architect (top tier) ───────────┐
+  "add X"  ───▶  │ openai-top → anthropic-top → (ask) → lighter │ ──▶ PLAN.md: spec + interface sketch + tickets
+                 └──────────────────────────────────────────────┘
+                 ┌──────────── Builder (lite tier) ────────────┐
+  TASK-001 ───▶  │ anthropic-lite → openai-lite → zai-lite → …  │ ──▶ branch + gates + evidence
+                 └───── usage limit? pause account, handoff, next profile
+                 ┌──────────── Review (other vendor) ──────────┐
+                 │ prefers an account that did not build it     │ ──▶ passed / gaps_found / human_needed
+                 └──────────────────────────────────────────────┘
 ```
 
 ---
 
-## Table of contents
+## Contents
 
-- [Why Role Router](#why-role-router)
-- [The three roles](#the-three-roles)
+- [Why](#why)
+- [Roles and chains](#roles-and-chains)
 - [Prerequisites](#prerequisites)
 - [Quickstart](#quickstart)
-- [Planning paths](#planning-paths)
-- [Guide: ship your first feature](#guide-ship-your-first-feature)
+- [Ship your first feature](#ship-your-first-feature)
 - [Command reference](#command-reference)
-- [Parallel builders — `/fan-out`](#parallel-builders--fan-out)
-- [How the loop knows what's next](#how-the-loop-knows-whats-next)
-- [Swapping Engines](#swapping-engines)
-- [Skill catalog](#skill-catalog)
-- [How it works under the hood](#how-it-works-under-the-hood)
-- [Troubleshooting & FAQ](#troubleshooting--faq)
+- [Fallback chains and usage limits](#fallback-chains-and-usage-limits)
+- [Multi-model runs: `fan` and pstack](#multi-model-runs-fan-and-pstack)
+- [Verification and retro](#verification-and-retro)
+- [Skills](#skills)
+- [Configuration](#configuration)
+- [How it works](#how-it-works)
+- [FAQ](#faq)
 - [Docs](#docs)
-- [Contributing](#contributing)
-- [License](#license)
 
 ---
 
-## Why Role Router
+## Why
 
-Coding agents are cheap to run *wrong* and expensive to run *well*. Most setups pick one model and pay top-of-the-line rates for work — boilerplate, test scaffolding, PR descriptions — that a model 10× cheaper does just fine. The waste isn't the model; it's spending an **Architect-grade** model on **Worker-grade** work.
+You pay for several coding agents. Each has usage windows, each is best at something, and none of them talks to the others. Role Router sits above them:
 
-Role Router splits the work by the *kind of thinking it needs* and binds each kind to its own Engine:
+- **Right model for the work.** Planning is rare and high-leverage: top-tier models. Building and admin are the bulk: lighter models.
+- **Limits stop being a wall.** When an account runs out mid-task, the work continues on the next account in the chain from a written handoff, and the exhausted account is skipped until it resets.
+- **A second pair of eyes from another vendor.** Review prefers a model family other than the one that wrote the code.
+- **Deterministic orchestration.** Picking tasks, walking chains, and routing on review status is plain code. Models only do role work.
 
-- **Planning** is rare, high-leverage — run it on your strongest subscription-backed or API engine.
-- **Building** is the bulk — run it on a cheap, capable coder.
-- **Admin** (review, docs, PR bodies) is the cheapest tier of all.
+## Roles and chains
 
-You keep one workflow; the models behind it are config you can swap in a month when something cheaper ships.
+| Role | Does | Command | Default chain (from `role-router configure`) |
+|---|---|---|---|
+| 🧠 **Architect** | ground, grill, design it twice, spec + interface sketch, tickets | `/plan` | every **top** profile, then lighter ones *only after asking you* |
+| 🔨 **Builder** | implement against the sketch, run gates, drive the real app | `/build` | **lite** profiles in your preferred order |
+| 🧹 **Worker** | review against spec and sketch; PR body | `/review` `/docs` | same as Builder, preferring another account than the Builder's |
+| 🚑 **Escalation** | take over a Builder task stuck after two diagnosed attempts | `/build` | **top** profiles |
 
-## The three roles
-
-| Role | Does | Command(s) | Engine (default) | Billing |
-|---|---|---|---|---|
-| 🧠 **Architect** | plan, decompose, harden specs | `/plan` | Codex CLI subscription | included usage/credits |
-| 🔨 **Builder** | implement, test, refactor | `/build` | Z.AI `glm-4.7` via OpenCode | Z.AI plan/API |
-| 🧹 **Worker** | review, docs, PR bodies, status | `/review` `/docs` | Z.AI `glm-4.7` via OpenCode | Z.AI plan/API |
-
-> An **Engine** is the concrete model bound to a Role right now. Engines change; Roles don't. ([GLOSSARY.md](GLOSSARY.md) is the full glossary.)
+A **profile** is an account plus a model plus a tier, e.g. *ChatGPT plan via Codex on `gpt-6-luna` (lite)*. Full vocabulary: [GLOSSARY.md](GLOSSARY.md).
 
 ## Prerequisites
 
 | Need | Why | Get it |
 |---|---|---|
-| **Node.js** ≥ 18 | runs the installer, `configure.mjs`, `board.mjs`, `fan-out.mjs` | <https://nodejs.org> |
-| **Codex CLI** *(optional)* | uses ChatGPT Plus/Pro for subscription-backed roles | `npm i -g @openai/codex` then `codex login` |
-| **OpenCode** | hosts API-backed Z.AI/OpenRouter roles | `npm i -g opencode-ai` |
-| A paid **Claude** plan (Pro or Max) *(optional)* | Claude Code-backed roles | <https://claude.com/claude-code> |
-| At least **one** provider plan | Builder/Worker need a cheap Engine | see below |
-| **git** | the workflow is branch- and worktree-based | preinstalled on most systems |
-| **`gh`** (optional) | lets `/next` reconcile and open PRs | <https://cli.github.com> |
+| **Node.js** ≥ 18 | runs Role Router | <https://nodejs.org> |
+| At least one agent, signed in | the work runs there | **Codex**: `npm i -g @openai/codex` then `codex login` · **Claude Code**: <https://claude.com/claude-code> · **OpenCode**: `npm i -g opencode-ai` then `opencode auth login` |
+| **git** | branches, worktrees, evidence | preinstalled on most systems |
+| **`gh`** *(optional)* | the `/next` prompt reconciles merged PRs | <https://cli.github.com> |
 
-**Provider options** (the installer will ask which you have):
-
-| Provider | Get it |
-|---|---|
-| ChatGPT Plus/Pro with Codex | sign in using `codex login`; API-provider keys remain separate |
-| Z.AI GLM Coding Plan | dedicated `https://api.z.ai/api/coding/paas/v4` endpoint |
-| Z.AI General API | `https://api.z.ai/api/paas/v4` |
-| OpenAI API *(separate billing)* | <https://platform.openai.com/api-keys> |
-| OpenRouter (aggregates many) | <https://openrouter.ai/keys> |
-| Anthropic API (paid, escalation only) | <https://console.anthropic.com/settings/keys> |
+Any paid plan works: ChatGPT Plus/Pro for Codex, Claude Pro/Max for Claude Code, and any provider OpenCode supports (Z.AI, OpenRouter, OpenCode Go, ...).
 
 ## Quickstart
 
 ```bash
-# 1. Clone
 git clone https://github.com/Atou4/role-router.git && cd role-router
-
-# 2. Run the interactive installer
-./install.sh
+./install.sh                 # detects your agents, runs the setup wizard, puts `role-router` on PATH
 ```
 
-The installer launches an **interactive CLI** that:
+The wizard (`role-router configure`, re-runnable any time):
 
-1. ✅ Checks prerequisites (Node.js, Codex CLI, OpenCode)
-2. 🔐 **Asks which subscription harnesses you have** (Codex Plus/Pro, Claude Pro/Max)
-3. 🔑 **Asks which API providers you have** (Z.AI Coding Plan/General API, OpenAI API, OpenRouter, Anthropic API)
-4. ⚙️ **Proposes role bindings** (Architect → Codex, Builder/Worker → Z.AI)
-5. 🎛️ **Lets you customize** which model serves each Role
-6. 📝 **Generates** `~/.role-router/config.json`
-7. 📦 **Installs** the `role-router` launcher (runs straight from this checkout)
+1. detects which of Codex, Claude Code and OpenCode are installed and signed in, and which OpenCode providers have credentials;
+2. asks which accounts to use, with a planning model and an execution model for each (ids are passed to the agent untouched; blank means the agent's default);
+3. asks your preferred execution order;
+4. shows the resulting chains and writes `~/.role-router/config.json` (an existing config is backed up first).
 
-Then it prints the **shell exports** you need to add to your profile (`~/.zshrc` or `~/.bash_profile`):
+`role-router configure --print` shows the proposal without writing anything. Then, optionally:
 
 ```bash
-export OPENAI_API_KEY="sk-..."        # if you selected OpenAI
-export ZAI_API_KEY="..."             # either Z.AI mode
-export OPENROUTER_API_KEY="sk-or-..." # if you selected OpenRouter
+role-router pstack           # let pstack skills (architect, arena, interrogate, how) run their model panels on your accounts
+role-router skills doctor    # check the skills each role uses are installed for every agent
 ```
 
-> **Authentication guardrail:** Codex subscriptions use Codex CLI login. API-backed roles use OpenCode provider credentials. Role Router never extracts or converts subscription credentials. ([ADR-0005](docs/adr/0005-engine-adapters-separate-harnesses-from-providers.md))
+> **Authentication guardrail:** Codex and Claude Code run with their own sign-ins; OpenCode uses its provider credentials or the env var you name. Role Router never reads, copies or proxies a token. ([ADR-0005](docs/adr/0005-engine-adapters-separate-harnesses-from-providers.md))
 
-## Planning paths
-
-Role Router adopts the mattpocock/skills v1.1 lifecycle without replacing its role commands. `/plan` is the local-board adapter for **Grilling → Spec → Tickets**: it uses the upgraded grilling rules, synthesizes spec decisions, and writes approved tracer-bullet tickets as the Handoff Artifact.
-
-Choose by planning size:
-
-| Situation | Architect path | Result |
-|---|---|---|
-| Clear enough for one strong session | `/plan <feature>` | `PLAN.md` or `.agent-board/` specs ready for `/build` |
-| Too large or foggy for one session | `/wayfinder <idea>` across sessions, then `/plan <map reference>` | a collaborative decision map, then Role Router task specs |
-| Tracker-native workflow without Role Router's board | `/grill-with-docs` → `/to-spec` → `/to-tickets` | tracker tickets worked with `/implement`, then `/code-review` |
-
-The grilling gate is explicit: the Architect looks up facts, asks the user to make decisions one at a time, and does not write tickets until the user confirms shared understanding and approves the dependency graph. See [ADR-0004](docs/adr/0004-adopt-skills-v1-1-within-role-pipeline.md).
-
-## Guide: ship your first feature
-
-A complete loop, from idea to an open PR, with each command launching the configured adapter.
-
-### 1 · Plan it (Architect — Codex subscription)
+## Ship your first feature
 
 ```bash
+cd ~/code/my-app
+
+# 1. Plan (interactive): ground, grill, design it twice, approve tickets
 role-router run architect "add phone verification to onboarding"
+
+# 2. Build → review → docs, one task at a time, driven by code
+role-router next                 # or: role-router next --loop
+# …or independent tasks in parallel, each in its own worktree
+role-router fanout TASK-002 TASK-003
+
+# 3. Merge the PR yourself; that is the human gate
+role-router status               # accounts, board, last runs, pending handoffs
 ```
 
-`/plan` grills decisions, synthesizes the spec, and decomposes it into approved **self-contained tracer-bullet task specs** — written to a root `PLAN.md` (or a `.agent-board/` task if your repo uses one). Each task carries a `status:` and a `depends:` list. This is the only step that uses Claude/Max.
+What `/plan` produces: a spec with a **Grounding** section (traced subsystems), the caller's **Usage**, an **Interface sketch** (types and signatures with stub bodies), the **Design decision** (chosen shape vs the strongest rejected alternative), and tracer-bullet tickets with `depends:` edges. When the sketch is cross-cutting, the first ticket lands the sketch itself so later tickets build in parallel against a fixed contract. For designs one session cannot settle, `/plan` sends you to `/architect`; for risky ones it recommends `/interrogate` before tickets.
 
-> Nothing else needs the Architect context again — the spec is the handoff.
+The Builder implements against the sketch and never invents a public type or signature: a needed change sets `human_needed` and stops. Review enforces the sketch and the acceptance criteria and emits the status the loop routes on.
 
-### 2 · Build it (Builder — cheap Engine)
-
-```bash
-role-router run builder TASK-001
-```
-
-The Builder reads the spec in a fresh context, implements the task, and runs quality gates. With the recommended setup this is GLM-4.7 through OpenCode. Difficult work escalates to GLM-5.2.
-
-### 3 · Review it (Worker — cheapest Engine)
-
-```bash
-role-router run worker TASK-001
-```
-
-The configured Worker checks the diff against the spec's acceptance criteria and **emits a status** — `passed`, `gaps_found`, or `human_needed`. That status, not its prose, is what the loop routes on next.
-
-### 4 · Document it & open the PR (Worker)
-
-```bash
-role-router run docs TASK-001
-```
-
-The Worker writes the PR body, updates the board, and opens the PR. The loop **pauses here** — merging is a human decision.
-
-### 5 · Let the loop drive
-
-Instead of running steps 2–4 by hand, chain them and auto-pick the next task:
-
-```text
-/next
-```
-
-One supervised iteration: reconcile merged PRs → `done`, guard that the previous PR is settled, then **route on status** — re-build a `gaps_found`, stop on `human_needed`, otherwise build the next task whose dependencies are all `done`. It refuses to build an un-planned task; that's the Architect's job, on Max.
-
-```
-  role-router run architect  → PLAN.md
-  /next → role-router run builder → worker → docs
-```
+Too big for one planning session? Run `/wayfinder` yourself to chart it, then `/plan <map reference>`. ([ADR-0004](docs/adr/0004-adopt-skills-v1-1-within-role-pipeline.md))
 
 ## Command reference
 
-| Command | Role | Adapter | What it does |
-|---|---|---|---|
-| `role-router run architect <feature>` | Architect | configured, normally Codex | Harden an idea into task specs |
-| `role-router run builder <id>` | Builder | configured, normally OpenCode/Z.AI | Implement one task and run gates |
-| `role-router run worker <id>` | Worker | configured, normally OpenCode/Z.AI | Emit `passed` / `gaps_found` / `human_needed` |
-| `role-router run docs <id>` | Worker | configured | Write PR body, update board, open PR |
-| `role-router limits` | — | — | Show or edit paused accounts |
-| `role-router next [TASK] [--loop]` | Builder+Worker | each Role's chain | One deterministic build → review → docs turn, driven by code |
-| `role-router status` | — | — | Accounts, board, last run per task, pending handoffs |
-| `/next` | Builder+Worker | launches each binding | The same loop as a prompt; also reconciles merged PRs |
-| `/fan-out <ids…>` | Builder ×N | Builder binding | Parallel independent tasks in fresh contexts |
+| Command | What it does |
+|---|---|
+| `role-router configure [--print]` | Setup wizard: accounts, models, chains → `~/.role-router/config.json` |
+| `role-router run <role> [arg] [--headless] [--profile=ID] [--dry-run]` | Run one role (`architect`, `builder`, `worker`/`review`, `docs`, `escalation`) through its chain |
+| `role-router chat <role> "<message>"` | Same, with your message as the prompt instead of the role workflow |
+| `role-router next [TASK] [--loop]` | One build → review → docs iteration, status read from `PLAN.md` after each step |
+| `role-router fanout <TASK…> [--concurrency=N] [--base=REF]` | Independent tasks in parallel, one worktree each |
+| `role-router fan "<prompt>" [--profiles=a,b] [--worktree]` | One prompt on several models, one answer file each |
+| `role-router pstack [--print]` | Point pstack skills' model panels at your profiles |
+| `role-router status` | Accounts, chains, board, last run per task, pending handoffs |
+| `role-router limits [pause <account> --until=WHEN \| clear <account>]` | Show or edit paused accounts |
+| `role-router board <next\|wave\|list\|status\|set-status>` | The `PLAN.md` task driver |
+| `role-router skills <doctor\|install\|readme>` | Check and install the skills roles use |
 
-**Board driver** (`scripts/board.mjs`):
+Exit codes for `run`, `chat` and `next`: `0` ok · `1` failed · `2` needs a decision · `3` aborted · `75` every profile limited (retry after the printed reset).
 
-```bash
-role-router board next                 # next buildable task (JSON, or NONE)
-role-router board wave                 # the buildable wave (JSON array)
-role-router board list                 # summary, flags BUILDABLE
-role-router board status TASK-003      # one task's status
-role-router board set-status TASK-003 review
-```
+Inside an agent session the same steps exist as prompts: `/plan`, `/build`, `/review`, `/docs`, `/next` (also reconciles merged PRs via `gh`) and `/fan-out`.
 
-## Parallel builders — `/fan-out`
+## Fallback chains and usage limits
 
-For a batch of **independent** tasks, skip the one-at-a-time loop and build them all at once:
+What happens in a headless run (`--headless`, and everything `next`, `fanout` and `fan` launch):
 
-```bash
-role-router fanout TASK-001 TASK-002 TASK-003
-```
-
-Each task runs through the configured Builder adapter in its own git worktree. An API binding launches `opencode run`; a Codex binding launches `codex exec`.
-
-The spawner is [`scripts/fan-out.mjs`](scripts/fan-out.mjs); each child uses the configured role adapter and a fresh context:
-
-```bash
-role-router fanout --concurrency=3 TASK-001 TASK-002
-```
-
-| Flag | Default | Meaning |
-|---|---|---|
-| `--concurrency=N` | `3` | how many Builders run at once |
-| `--base=<ref>` | `HEAD` | branch each worktree forks from |
-| `--no-worktree` | off | build in the current dir (single task only) |
-| `--yes` | off | skip the confirmation prompt |
-| `--dry-run` | off | validate config and print the launch plan without creating worktrees |
-
-> Use `/next` for **dependent** work (build in order, one PR at a time) and `/fan-out` for **independent** work (a whole wave at once).
-
-## How the loop knows what's next
-
-Each task carries two scheduler fields — a **status** and a **`depends:`** list:
-
-```markdown
-## TASK-003 — Add phone verification
-- status: planned        # planned→building→review→{passed|gaps_found|human_needed}→done
-- depends: TASK-001, TASK-002
-
-### Scope
-…
-### Acceptance Criteria
-- [ ] …
-```
-
-A task is **buildable** when its status is `planned` **and** every `depends:` task is `done`. `/next` builds the first buildable task; `/fan-out` builds the whole buildable **wave**. `/review` writes the status that decides what happens next.
-
-The portable driver is [`scripts/board.mjs`](scripts/board.mjs) (operates on `PLAN.md`); `.agent-board/` repos use their own board tool. Full contract: [`docs/task-spec.md`](docs/task-spec.md).
-
-## Fallback chains & usage limits
-
-Each Role lists **profiles** in preference order (an account + model + tier). Copy [`config/role-router.v2.example.json`](config/role-router.v2.example.json) to `~/.role-router/config.json` and edit it — model ids are passed to the agent untouched, so any model your plan offers works. Old v1 configs keep working.
-
-```
-accounts  → which paid plan/agent:      openai (codex) · anthropic (claude) · zai (opencode)
-profiles  → account + model + tier:     codex-top = openai + gpt-6-sol (top) · claude-mid = anthropic + sonnet (lite)
-roles     → ordered chain of profiles:  builder: claude-mid → codex-lite → glm
-```
-
-What happens in a headless run (`--headless`, and everything `fanout` launches):
-
-- **Usage limit hit** → that *account* is paused until its reset time (or `cooldownMinutes`), a `handoff.md` is written under `.role-router/runs/<task>/`, and the next profile continues from the handoff. The worktree is kept as is.
+- **Usage limit hit** → that *account* is paused until its reset time (or `cooldownMinutes`), a `handoff.md` is written under `.role-router/runs/<task>/`, and the next profile continues. The worktree is kept as is.
 - **Transient 429** → the same profile is retried a couple of times, then the chain moves on.
-- **Planning Roles (`onTierDrop: "ask"`)** never silently drop to a lighter model: interactively you choose *wait / switch / abort*; headless it exits `2` and waits for you.
+- **Planning roles never silently drop to a lighter model**: interactively you choose *wait / switch / abort*; headless it exits `2`. A plan made on a lighter model is marked `plan-tier: lite`.
 - **Reviews** prefer an account other than the one that built the task, and ask before reviewing on the same one.
 - **Every profile limited** → exit `75` with the earliest reset time.
 
-Limits can only be detected automatically in headless runs. After hitting one in an interactive session, record it:
+Limits are detected automatically only in headless runs. After hitting one in an interactive session:
 
 ```bash
-role-router limits                              # which accounts are paused
+role-router limits                                 # which accounts are paused
 role-router limits pause anthropic --until=17:30   # or +90m, +2h, an ISO date
 role-router limits clear anthropic
 ```
 
 **Continuity.** Files and git carry the state, not the agent's session:
 
-- `handoff.md` is written when a run ends on a limit or a crash. It lists the task's acceptance criteria split into verified (ticked) and still open, gives `git` commands to re-read the live state instead of a stale snapshot, and tells the next agent to run the verification gates first.
+- `handoff.md` is written when a run ends on a limit or a crash: acceptance criteria split into verified and still open, `git` commands to re-read the live state, and an instruction to run the gates before new work.
 - When the *same* profile returns after its account resets, it resumes its own session (`claude --resume`, `codex exec resume`, `opencode --session`); if that fails it starts fresh from the handoff.
-- Every headless run leaves `.role-router/runs/<task>/NNN-<profile>.json` (+ `.jsonl` events): agent, result, tokens/cost when reported, and **evidence** the orchestrator observed itself (git commit, uncommitted files, diff stat).
+- Every headless run leaves `.role-router/runs/<task>/NNN-<profile>.json` (+ `.jsonl` events): agent, result, tokens or cost when reported, and **evidence** the orchestrator observed itself (commit, uncommitted files, diff stat).
 
- Design: [ADR-0006](docs/adr/0006-account-aware-fallback-chains.md), [dispatch.md](docs/design/dispatch.md).
+Design: [ADR-0006](docs/adr/0006-account-aware-fallback-chains.md), [dispatch.md](docs/design/dispatch.md).
 
-## Multi-model runs — `role-router fan`
+## Multi-model runs: `fan` and pstack
 
-Skills that compare models (`architect`, `arena`, `interrogate`, `how`) need runners on *different* model families. Inside Claude Code a subagent can only be Claude; `fan` runs one prompt on several of your profiles in parallel instead, through the same dispatcher (usage limits and run records included):
+Skills that compare model families (`architect`, `arena`, `interrogate`, `how`) need runners on *different* models. Inside Claude Code a subagent can only be Claude. `fan` runs one prompt on several of your profiles in parallel instead, through the same dispatcher, so limits and run records apply:
 
 ```bash
 role-router fan --list                                   # default lanes: one top profile per account
 role-router fan "Review this design: ..."                # one answer per model
-role-router fan --profiles=codex-top,claude-top --prompt-file=task.md
+role-router fan --profiles=openai-top,anthropic-top --prompt-file=task.md
 role-router fan --worktree --prompt-file=candidate.md    # each lane writes in its own detached worktree
 ```
 
-Answers land in `.role-router/fan/<stamp>/<profile>.md` with `fan.json` as the index. When one of those skills asks for runners or reviewers on specific models, fill its prompt template into a file and pass it to `fan`, then read every answer before synthesising.
+Answers land in `.role-router/fan/<stamp>/<profile>.md`, indexed by `fan.json`.
+
+**pstack integration.** The pstack skills choose runners, reviewers and judges from `~/.cursor/rules/pstack-models.mdc` when it exists. `role-router pstack` writes that rule with your profiles (`role-router:openai-top, role-router:anthropic-top, ...`) and tells the agent to run those lanes through `fan` instead of spawning same-vendor subagents. Panels get one top profile per account; judges and explainers get your strongest planning profile; explorers and workers get your preferred execution profile. Re-run it after `role-router configure`. An existing rule is backed up first.
 
 ## Verification and retro
 
@@ -313,130 +194,112 @@ Answers land in `.role-router/fan/<stamp>/<profile>.md` with `fan.json` as the i
 
 `.role-router/` in each repo carries its own `.gitignore`, so run state never shows in `git status`.
 
-## Swapping Engines
-
-Engines are config, not architecture. You have two options:
-
-**Option 1 — Re-run the interactive CLI:**
-
-```bash
-cd /path/to/role-router
-role-router configure
-```
-
-This re-prompts you for providers and models, and regenerates the config.
-
-To jump directly into any repository without creating a plan first:
-
-```bash
-cd /path/to/repository
-role-router chat architect "inspect this codebase and help me continue the current work"
-role-router chat builder "fix the failing checkout test"
-```
-
-`chat` starts an interactive conversation with the initial message immediately. Use `run` when you want the structured plan/build/review workflow and its file-based handoffs.
-
-**Option 2 — Edit the config directly:**
-
-Edit role-to-adapter bindings in `~/.role-router/config.json`:
-
-```jsonc
-"architect": { "adapter": "codex" },
-"builder": { "adapter": "opencode", "provider": "zai-coding-plan", "model": "zai-coding-plan/glm-4.7", "keyEnv": "ZAI_API_KEY" },
-"worker": { "adapter": "opencode", "provider": "zai-coding-plan", "model": "zai-coding-plan/glm-4.7", "keyEnv": "ZAI_API_KEY" }
-```
-
-Authenticate API providers using `opencode auth login` or their documented environment variable. Subscription-backed Codex uses the existing `codex login` session.
-
-OpenRouter models use the same adapter. For example, Kimi for building and DeepSeek for review:
-
-```jsonc
-"builder": { "adapter": "opencode", "provider": "openrouter", "model": "openrouter/moonshotai/kimi-k2.7-code", "keyEnv": "OPENROUTER_API_KEY" },
-"worker": { "adapter": "opencode", "provider": "openrouter", "model": "openrouter/deepseek/deepseek-v4-flash", "keyEnv": "OPENROUTER_API_KEY" }
-```
-
-This is a binding change only; the `/plan`, `/build`, `/review`, `/docs`, and fan-out workflow stays the same.
-
 ## Skills
 
-Each role run is **handed its skills by dispatch**, not left to guess. [`skills-manifest.json`](skills-manifest.json) lists per Role a few core skills, stack rules, and optional extras; dispatch can add stack rules per detected stack (none are configured by default), keeps only skills the target agent can actually read, caps the set at 6, and appends their `SKILL.md` paths to the prompt. Paths work the same on Claude Code, Codex and OpenCode.
+Each role run is **handed its skills by dispatch**, not left to guess. [`skills-manifest.json`](skills-manifest.json) lists each role's core and optional skills; dispatch keeps only those the target agent can read, caps the set at 6, adds the repo's verification skill where relevant, and appends their `SKILL.md` paths to the prompt. Paths work the same on all three agents.
 
 | Role | Core | Plus |
 |---|---|---|
 | Architect | `grilling`, `domain-modeling`, `codebase-design` | `prototype`, `research` |
-| Builder | `tdd`, `diagnosing-bugs` | |
-| Review | `code-review` | |
+| Builder / Escalation | `tdd`, `diagnosing-bugs` (+ `codebase-design` for Escalation) | repo `verify-<app>` |
+| Review | `code-review` | repo `verify-<app>` |
 | Docs | `pr` | |
 
-Rules: a role only gets skills the model is allowed to load. User-only skills (`wayfinder`, `how`, `why`, `architect`, `arena`, `blast-radius`, `interrogate`, `to-spec`, `to-tickets`, ...) are never called by a role; the role prompt tells *you* when to run them.
+A role only gets skills the model is allowed to load. User-only skills (`architect`, `arena`, `interrogate`, `how`, `why`, `blast-radius`, `wayfinder`, ...) are never called by a role; the role prompt tells *you* when to run them. Stack-specific rule skills are deliberately not part of the setup (add a `stacks` entry to the manifest to bring one back).
 
-[`catalog/`](catalog/README.md) lists every skill this workflow uses with its upstream source; it is generated from [`catalog/skills.json`](catalog/skills.json).
+[`catalog/`](catalog/README.md) lists every skill this workflow uses with its upstream source, generated from [`catalog/skills.json`](catalog/skills.json).
 
 ```bash
-role-router skills doctor              # per agent: missing, user-only, obsolete, diverged copies, list budget
+role-router skills doctor              # per agent: missing role skills, user-only in a role, diverged copies, list size
 role-router skills install all         # or: architect | builder | review | docs | human | <group>
 role-router skills readme              # regenerate catalog/README.md
 ```
 
-Installs target Claude Code, Codex and OpenCode in one go (`~/.agents/skills`, symlinked into `~/.claude/skills`).
+Installs target Claude Code, Codex and OpenCode together (`~/.agents/skills`, symlinked into `~/.claude/skills`). The doctor never touches skills outside the role set.
 
-## How it works under the hood
+## Configuration
 
-The Architect writes a self-contained spec (board task or `PLAN.md`); the Builder reads it in a fresh session on a cheap Engine. **State crosses the boundary through files, not shared context** — so the cheap Engine never needs Claude's reasoning in-window.
+`~/.role-router/config.json` (v2), as the wizard writes it:
 
-**Adapters separate harnesses from providers:** `run-role.mjs` loads the same role prompt, then launches Codex, Claude Code, or OpenCode. `PLAN.md`, git diffs, and task status remain the cross-harness contract. ([ADR-0003](docs/adr/0003-split-pipeline-per-role.md), [ADR-0005](docs/adr/0005-engine-adapters-separate-harnesses-from-providers.md))
+```jsonc
+{
+  "version": 2,
+  "accounts": {
+    "openai":    { "agent": "codex" },
+    "anthropic": { "agent": "claude" },
+    "zai":       { "agent": "opencode", "provider": "zai-coding-plan", "keyEnv": "ZAI_API_KEY" }
+  },
+  "profiles": {
+    "openai-top":     { "account": "openai",    "model": "gpt-6-sol",  "tier": "top" },
+    "openai-lite":    { "account": "openai",    "model": "gpt-6-luna", "tier": "lite" },
+    "anthropic-top":  { "account": "anthropic", "model": "opus",       "tier": "top" },
+    "anthropic-lite": { "account": "anthropic", "model": "sonnet",     "tier": "lite" },
+    "zai-lite":       { "account": "zai",       "model": "zai-coding-plan/glm-4.7", "tier": "lite" }
+  },
+  "roles": {
+    "architect":  { "chain": ["openai-top", "anthropic-top", "anthropic-lite", "openai-lite", "zai-lite"], "onTierDrop": "ask" },
+    "builder":    { "chain": ["anthropic-lite", "openai-lite", "zai-lite", "anthropic-top", "openai-top"], "onTierDrop": "auto" },
+    "worker":     { "chain": ["anthropic-lite", "openai-lite", "zai-lite", "anthropic-top", "openai-top"], "onTierDrop": "auto", "avoidBuilderAccount": true, "onSameAccountReview": "ask" },
+    "escalation": { "chain": ["openai-top", "anthropic-top"], "onTierDrop": "ask" }
+  },
+  "defaults": { "cooldownMinutes": 60, "transientRetries": 2 }
+}
+```
 
-## Troubleshooting & FAQ
+Edit it freely or re-run `role-router configure`. Model ids are opaque: any id your plan offers works on release day. Usage limits are tracked per **account**, so all profiles of an exhausted plan pause together. Version 1 configs (one adapter per role) still load and are upgraded in memory.
+
+## How it works
+
+- **Dispatch** (`lib/dispatch.mjs`) is the single entry point: resolve the role's chain, skip paused accounts, ask before a tier drop, hand over skills, launch the agent, classify the result, then pause and hand off or return. No model participates in these decisions.
+- **Agents** (`lib/agents/`) own everything specific to one CLI: launch flags, headless event format, limit-message parsing, session ids for resume. Adding one is one file.
+- **State crosses roles through files**: the `PLAN.md` spec and status, git, handoffs and run records. A Builder on another vendor never needs the Architect's context. ([ADR-0003](docs/adr/0003-split-pipeline-per-role.md))
+- **The loop** (`lib/next.mjs`) reads task status after each step and stops at `gaps_found`, `human_needed`, a limit or a crash. It never merges.
+
+## FAQ
 
 <details>
-<summary><strong>Can OpenCode spend my Codex Plus subscription?</strong></summary>
+<summary><strong>Can OpenCode spend my ChatGPT or Claude subscription?</strong></summary>
 
-No. Codex subscription roles launch through Codex CLI. OpenCode uses its own provider credentials.
+No. Codex and Claude Code run with their own sign-ins. OpenCode uses its own provider credentials or the env var named in `keyEnv`.
 </details>
 
 <details>
-<summary><strong><code>opencode: command not found</code> after install</strong></summary>
+<summary><strong>A run exited 75. What now?</strong></summary>
 
-OpenCode is installed globally. Make sure your global npm bin is on `PATH`, then reopen the shell. Re-run `./install.sh`; it is safe to run again.
+Every profile in that role's chain is limited. The message prints the earliest reset; `role-router status` shows the paused accounts and any handoff. Re-run after the reset: the same profile resumes its own session, or the next one continues from the handoff.
+</details>
+
+<details>
+<summary><strong>Why did planning stop and ask me about a lighter model?</strong></summary>
+
+All top-tier planning profiles are limited. Planning quality is the point of the top tier, so dropping it is your call: wait for the reset, switch (the plan is marked `plan-tier: lite` for re-review), or abort.
 </details>
 
 <details>
 <summary><strong><code>/build</code> says the model is unauthorized / 401</strong></summary>
 
-Check the environment variable referenced by the selected provider. Z.AI uses `ZAI_API_KEY`; OpenRouter uses `OPENROUTER_API_KEY`. You can also run `opencode auth login`.
-</details>
-
-<details>
-<summary><strong><code>/next</code> stops saying a PR is still open</strong></summary>
-
-By design — the loop never starts a new task while the previous one's PR is unmerged. Merge or close it, then run `/next` again. (It also fail-closes if the `gh` query is flaky, rather than risk double-building.)
-</details>
-
-<details>
-<summary><strong>Can I use a different cheap model?</strong></summary>
-
-Yes — that's the whole point. See [Swapping Engines](#swapping-engines). Roles stay; Engines are config.
+For an OpenCode profile, check the env var named in the account's `keyEnv`, or run `opencode auth login`. For Codex run `codex login`; for Claude Code, `claude auth login`.
 </details>
 
 <details>
 <summary><strong>Do I have to use <code>PLAN.md</code>?</strong></summary>
 
-No. If your repo has an `.agent-board/`, the commands use its board tool instead. `PLAN.md` + `board.mjs` is just the portable default for repos without one.
+No. If your repo has an `.agent-board/`, the role prompts use its board tool instead. `PLAN.md` + `role-router board` is the portable default.
 </details>
 
 ## Docs
 
-- [`GLOSSARY.md`](GLOSSARY.md) — the shared vocabulary (Role, Engine, Adapter, Handoff Artifact, Escalation, Fan-out, Wave, Worktree).
-- [`docs/adr/`](docs/adr/) — the load-bearing decisions and why.
-- [`docs/task-spec.md`](docs/task-spec.md) — the task format + status contract (`planned`→…→`done`) and `depends:` scheduling.
-- [`docs/adr/0004-adopt-skills-v1-1-within-role-pipeline.md`](docs/adr/0004-adopt-skills-v1-1-within-role-pipeline.md) — how Wayfinder and the renamed lifecycle skills fit Role Router.
-- [`docs/adr/0005-engine-adapters-separate-harnesses-from-providers.md`](docs/adr/0005-engine-adapters-separate-harnesses-from-providers.md) — why Codex subscriptions and Z.AI API routes use different Adapters.
-- [`docs/comparison-gsd.md`](docs/comparison-gsd.md) — how Role Router stacks up against [GSD Core](https://github.com/open-gsd/gsd-core), and the prioritized list of ideas to steal.
+- [`GLOSSARY.md`](GLOSSARY.md): the shared vocabulary (Role, Profile, Account, Tier, Chain, Usage Limit, Handoff Artifact, Fan, Fan-out, ...).
+- [`docs/adr/`](docs/adr/): the load-bearing decisions and why; [ADR-0006](docs/adr/0006-account-aware-fallback-chains.md) covers chains and limits.
+- [`docs/design/dispatch.md`](docs/design/dispatch.md): the dispatcher's design rationale.
+- [`docs/task-spec.md`](docs/task-spec.md): task format, status contract and `depends:` scheduling.
+- [`catalog/README.md`](catalog/README.md): every skill the workflow uses, with sources.
+- [`docs/comparison-gsd.md`](docs/comparison-gsd.md): comparison with GSD Core. [`docs/HANDOFF.md`](docs/HANDOFF.md) is a historical snapshot of the CCR era.
 
 ## Contributing
 
-Issues and PRs welcome. The repo is small on purpose — before adding a command, check it can't be expressed as a Role + an Engine swap. Keep the glossary in `GLOSSARY.md` authoritative: if you introduce a term, define it there.
+Issues and PRs welcome. Before adding a command, check it can't be expressed as a role plus a chain change. Keep `GLOSSARY.md` authoritative: define new terms there. Tests: `node --test test/`.
 
 ## License
 
-No license file yet — add one before sharing publicly (**MIT** is recommended for a tool like this). The bundled skill catalog only *references* upstream skills under their own licenses; it doesn't redistribute them.
+No license file yet. MIT is recommended. The skill catalog only *references* upstream skills under their own licenses; it does not redistribute them.

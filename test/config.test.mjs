@@ -24,7 +24,7 @@ test('v1 config upgrades to one profile and a one-entry chain per role', () => {
 
 test('the shipped v2 example is valid', () => {
   const c = loadConfig(new URL('../config/role-router.v2.example.json', import.meta.url).pathname);
-  assert.equal(c.roles.architect.chain[0], 'codex-top');
+  assert.equal(c.roles.architect.chain[0], 'openai-top');
 });
 
 test('dangling references and unknown agents are rejected with a clear message', () => {

@@ -2,7 +2,8 @@
 set -euo pipefail
 
 # Role Router installer — interactive setup
-# Guides you through selecting agents and generates role bindings, then puts a
+# Detects Codex / Claude Code / OpenCode, asks which paid accounts and models to use,
+# writes ~/.role-router/config.json (v2), then puts a
 # `role-router` launcher on PATH that runs straight from this checkout.
 
 SRC="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -59,7 +60,7 @@ fi
 
 ok "Role bindings written to $ROLE_CONFIG"
 
-if node -e 'const c=require(process.argv[1]); process.exit(Object.values(c.roles || {}).some(r => r.adapter === "codex") ? 0 : 1)' "$ROLE_CONFIG"; then
+if node -e 'const c=require(process.argv[1]); process.exit(Object.values(c.accounts || {}).some(a => a.agent === "codex") || Object.values(c.roles || {}).some(r => r.adapter === "codex") ? 0 : 1)' "$ROLE_CONFIG"; then
   if ! codex login status >/dev/null 2>&1; then
     warn "Codex is selected but not signed in. Run: codex login"
   fi

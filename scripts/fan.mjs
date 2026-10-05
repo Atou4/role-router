@@ -3,7 +3,7 @@
 // role-router fan — one prompt, several models, one answer file per model.
 //
 //   role-router fan "<prompt>"                       default: one top profile per account
-//   role-router fan --profiles=codex-top,claude-top --prompt-file=task.md
+//   role-router fan --profiles=openai-top,anthropic-top --prompt-file=task.md
 //   role-router fan --worktree ...                   each lane gets its own detached worktree
 //   role-router fan --list                           show the default lanes
 //
