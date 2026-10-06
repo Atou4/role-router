@@ -18,6 +18,8 @@
 //   loop    `role-router next TASK-001`: build → review (other vendor) → docs, statuses and evidence
 //   limit   fake `claude` hits a usage limit mid-task → account paused, handoff, Codex finishes it
 //   fanout  two independent tasks in parallel worktrees
+//   fix     `role-router fix "<bug>"`: reproduce with a failing test, fix, review on another vendor, docs
+//   guard   `role-router quick "<a redesign>"`: the Builder refuses to design on the fly (human_needed)
 
 import { execFileSync, spawnSync } from 'node:child_process';
 import { chmodSync, existsSync, mkdirSync, readdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
@@ -57,6 +59,8 @@ function setUpSandbox() {
   mkdirSync(path.join(REPO, 'test'), { recursive: true });
   writeFileSync(path.join(REPO, 'package.json'), JSON.stringify({ name: 'rr-sandbox', type: 'module', private: true, scripts: { test: 'node --test' } }, null, 2) + '\n');
   writeFileSync(path.join(REPO, 'src', 'math.js'), 'export function add(a, b) {\n  return a + b;\n}\n');
+  // A real bug for the `fix` scenario: divides by length - 1.
+  writeFileSync(path.join(REPO, 'src', 'stats.js'), 'export function average(list) {\n  return list.reduce((sum, n) => sum + n, 0) / (list.length - 1);\n}\n');
   writeFileSync(path.join(REPO, 'test', 'math.test.js'), "import { test } from 'node:test';\nimport assert from 'node:assert/strict';\nimport { add } from '../src/math.js';\n\ntest('add', () => assert.equal(add(2, 3), 5));\n");
   const task = (id, title, scope, file) => `## ${id} — ${title}
 - status: planned
@@ -224,6 +228,41 @@ const scenarios = {
       ['the main board sees both tasks in review', status('TASK-003') === 'review' && status('TASK-004') === 'review', `TASK-003 ${status('TASK-003')}, TASK-004 ${status('TASK-004')}`],
       ['no worktree left a dirty PLAN.md', ['TASK-003', 'TASK-004'].every((id) => !execFileSync('git', ['status', '--porcelain'], { cwd: wt(id), encoding: 'utf8' }).includes('PLAN.md'))],
       ['both task branches exist', ['task/TASK-003', 'task/TASK-004'].every((b) => { try { git('rev-parse', '--verify', b); return true; } catch { return false; } })],
+    ];
+  },
+
+  fix() {
+    git('checkout', '-q', 'main');
+    const r = rr(['fix', 'average([2, 4]) in src/stats.js returns 6 instead of 3'], { timeoutMin: 30 });
+    const recs = records('FIX-001');
+    const by = (op) => recs.filter((x) => (x.operation ?? x.role) === op && x.result.kind === 'ok').at(-1);
+    let fixed = false;
+    let suite = false;
+    let testMentions = false;
+    try {
+      git('checkout', '-q', 'task/FIX-001');
+      fixed = execFileSync('node', ['-e', "import('./src/stats.js').then(m => console.log(m.average([2, 4])))"], { cwd: REPO, encoding: 'utf8' }).trim() === '3';
+      execFileSync('npm', ['test', '--silent'], { cwd: REPO, stdio: 'ignore' }); suite = true;
+      testMentions = /average/.test(git('diff', 'main', '--', 'test'));
+    } catch { /* reported below */ }
+    const notes = readFileSync(path.join(REPO, '.role-router', 'tasks', 'FIX-001.md'), 'utf8').split('### Notes')[1] ?? '';
+    git('checkout', '-q', 'main');
+    return [
+      ['fix exits 0 and the task passes', r.code === 0 && status('FIX-001') === 'passed', `exit ${r.code}, status ${status('FIX-001')}`],
+      ['the bug is fixed on task/FIX-001 and the suite passes', fixed && suite],
+      ['a test covering average was added', testMentions],
+      ['the Builder wrote its reproduction / root cause under Notes', notes.replace(/\(Builder:[^)]*\)/, '').trim().length > 20],
+      ['review ran on another account than the build', Boolean(by('builder') && by('review') && by('builder').account !== by('review').account), `${by('builder')?.account} → ${by('review')?.account}`],
+    ];
+  },
+
+  guard() {
+    git('checkout', '-q', 'main');
+    const r = rr(['quick', 'replace the whole math library with a pluggable plugin architecture and a new public API'], { timeoutMin: 20 });
+    return [
+      ['quick on a redesign stops with human_needed (exit 2)', r.code === 2 && status('QUICK-001') === 'human_needed', `exit ${r.code}, status ${status('QUICK-001')}`],
+      ['no review ran on it', !records('QUICK-001').some((x) => (x.operation ?? x.role) === 'review')],
+      ['it points the user to /plan', /run architect/.test(r.out)],
     ];
   },
 };

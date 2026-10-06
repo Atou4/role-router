@@ -31,6 +31,10 @@ Two small conventions let `/next` and `/fan-out` schedule work deterministically
 - `status:` in `PLAN.md` is the task's **starting** status. Live status is runtime state kept in `.role-router/board.json` at the main checkout (outside git, shared by every branch and worktree), written by `role-router board set-status`. Status changes therefore never dirty a working tree, and parallel builders in worktrees update one shared board.
 - `Testing Decisions` records the user-approved public seams and observable behavior. Builders do not invent lower-level seams in a fresh context.
 
+## Quick tasks
+
+`role-router fix "<bug>"` and `role-router quick "<change>"` create a task without an Architect: `.role-router/tasks/FIX-001.md` (or `QUICK-001.md`) at the main checkout, in the same section format with an extra `- kind: fix|quick` line, a **Request** (the user's words), default **Acceptance Criteria** and a **Notes** section the Builder fills in. They are never committed, share the live board with `PLAN.md` tasks, and follow the same status lifecycle. A Builder that finds the request needs design work sets `human_needed`.
+
 ## The status lifecycle
 
 ```

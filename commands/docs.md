@@ -1,6 +1,6 @@
 ---
 description: WORKER role — generate docs, PR body, changelog, and update task/board status using the configured Worker Engine.
-argument-hint: TASK-XXX (optional)
+argument-hint: TASK-XXX | FIX-XXX | QUICK-XXX (optional)
 allowed-tools: Bash, Read, Edit, Write, Glob, Grep, Skill
 ---
 

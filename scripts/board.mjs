@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 
-// Role Router — PLAN.md task driver CLI (logic lives in lib/board.mjs).
+// Role Router — task board CLI over PLAN.md and quick tasks (logic lives in lib/board.mjs).
 //
 //   role-router board next                 -> JSON of the next buildable task, or NONE
 //   role-router board wave                 -> JSON array of buildable tasks (deps done)
@@ -20,7 +20,7 @@ function repoRoot() {
 }
 const ROOT = repoRoot();
 const fail = (msg) => { console.error(msg); process.exit(1); };
-const board = () => loadBoard(ROOT) ?? fail(`No PLAN.md at ${planPath(ROOT)}. Run the Architect role first.`);
+const board = () => loadBoard(ROOT) ?? fail(`No tasks: no PLAN.md at ${planPath(ROOT)} and no quick tasks. Run the Architect role, or role-router fix|quick.`);
 
 const [cmd, ...rest] = process.argv.slice(2);
 

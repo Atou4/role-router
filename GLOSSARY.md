@@ -20,6 +20,10 @@ _Avoid_: Role, command name
 A persistently identified unit of user intent that survives sessions and Role transitions. Every invocation creates or resumes one; planned tasks reuse their task ID, while direct requests receive an automatic identity. A Work Item does not require a plan unless its scope demands one.
 _Avoid_: Conversation, model session
 
+**Quick Task**:
+A Work Item created from a one-line request by `role-router fix` (`FIX-…`) or `role-router quick` (`QUICK-…`), with no Architect spec. It runs the normal Builder → Review → Docs loop; its Builder must stop with `human_needed` when the request turns out to need design work.
+_Avoid_: Hotfix (it still goes through review), ad-hoc chat
+
 **Passed**:
 A non-terminal Work Item state meaning its Operation-specific evidence satisfies the current acceptance criteria and it is ready for human delivery. Passed is not Done; an open PR remains Passed until merge.
 _Avoid_: Complete, delivered

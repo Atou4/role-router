@@ -4,7 +4,7 @@ import { mkdirSync, mkdtempSync, writeFileSync } from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import { loadBoard, setStatus } from '../lib/board.mjs';
-import { runNext } from '../lib/next.mjs';
+import { runNext, verdictOf } from '../lib/next.mjs';
 
 const PLAN = `## TASK-001 — A
 - status: planned
@@ -104,4 +104,33 @@ test('passing after more than one review round recommends /retro', async () => {
   assert.equal(r.stop, 'passed');
   assert.equal(r.retro, true);
   assert.match(r.message, /2 review rounds: run \/retro/);
+});
+
+test('a reviewer that prints its verdict but skips the board command still advances the task', async () => {
+  reset(); const root = repo();
+  const dispatch = async ({ role, task }) => {
+    scripted.calls.push(role);
+    if (role === 'builder') setStatus(root, task, 'review');
+    const summary = role === 'review' ? '## Must-fix\n\nNone.\n\nAll criteria are met.\n\n**passed**' : 'done';
+    return { status: 'ok', runs: [{ profile: 'p', result: { kind: 'ok', summary } }] };
+  };
+  const r = await runNext({ root, task: 'TASK-001', dispatch });
+  assert.equal(r.stop, 'passed');
+  assert.deepEqual(scripted.calls, ['builder', 'review', 'docs']);
+});
+
+test('verdict parsing takes the last verdict line and ignores prose mentions', () => {
+  assert.equal(verdictOf('we considered gaps_found but\n\npassed'), 'passed');
+  assert.equal(verdictOf('Status: gaps_found'), 'gaps_found');
+  assert.equal(verdictOf('`human_needed`'), 'human_needed');
+  assert.equal(verdictOf('the task passed review in my opinion'), null);
+  assert.equal(verdictOf(undefined), null);
+});
+
+test('a task waiting on a human does not block an explicitly named task or independent work', async () => {
+  reset();
+  const root = repo(`## TASK-001 — A\n- status: human_needed\n- depends:\n\n## TASK-002 — B\n- status: planned\n- depends:\n`);
+  const r = await runNext({ root, dispatch: scripted(root, { builder: 'review', review: 'passed' }) });
+  assert.equal(r.task, 'TASK-002', 'auto-pick skips the waiting task');
+  assert.equal(r.stop, 'passed');
 });

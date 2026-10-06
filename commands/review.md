@@ -1,6 +1,6 @@
 ---
 description: WORKER role — review the current diff against conventions and skills through the configured Worker adapter.
-argument-hint: TASK-XXX (optional)
+argument-hint: TASK-XXX | FIX-XXX | QUICK-XXX (optional)
 allowed-tools: Bash, Read, Glob, Grep, Skill, Agent
 ---
 
@@ -11,12 +11,13 @@ allowed-tools: Bash, Read, Glob, Grep, Skill, Agent
 You are the **Worker** doing review. Review the diff, do not change code.
 
 ## 1. Scope the diff
-`git diff` against the base branch (default branch). If `$ARGUMENTS` is given, also read its spec (`.agent-board/tasks/$ARGUMENTS.md` or the `PLAN.md` section) to check the diff actually satisfies the Acceptance Criteria.
+`git diff` against the base branch (default branch). If `$ARGUMENTS` is given, also read its spec (`.role-router/tasks/$ARGUMENTS.md` for a quick task, `.agent-board/tasks/$ARGUMENTS.md`, or the `PLAN.md` section) to check the diff actually satisfies the Acceptance Criteria.
 
 ## 2. Review
 - Use the `code-review` skill and any stack rule skills listed under **Skills for this run**. Run its Standards and Spec axes independently, including the refactoring-smell baseline, then map any hard failure to the normalized status below.
 - **Interface sketch:** if the spec has one, the diff must implement it as written. A public type, signature, or module boundary that differs from the sketch is a Must-fix unless the spec records an approved change.
 - **Evidence, not claims:** when a repo verification skill (`verify-<app>`) is listed under **Skills for this run**, check that the Builder's evidence exists where it says, then drive at least one user-visible Acceptance Criterion yourself with that skill. A criterion whose evidence is missing or does not reproduce is a Must-fix.
+- **Quick tasks:** for a `FIX-…`, confirm the new test reproduces the reported bug (it would fail without the fix) and that Notes name a plausible root cause; a fix with no reproducing test is a Must-fix. For a `QUICK-…`, confirm the change stays small: a new or changed public interface or a design decision is `human_needed` with a recommendation to `/plan` it.
 - **Requirement coverage, not just a diff scan:** go through every Acceptance Criterion / REQ-ID in the spec and confirm the diff actually implements it. A criterion ticked-but-unverified is a Must-fix.
 - Also check: convention violations, obvious correctness or security issues.
 - **Risk flag:** if the diff touches money, auth or permissions, data migrations, a status/enum mapping, or anything another repo reads, add a **Risk** line to the report recommending the user run `/blast-radius` on it before merge. This is a recommendation for the human, not a status change.

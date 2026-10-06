@@ -124,7 +124,16 @@ What `/plan` produces: a spec with a **Grounding** section (traced subsystems), 
 
 The Builder implements against the sketch and never invents a public type or signature: a needed change sets `human_needed` and stops. Review enforces the sketch and the acceptance criteria and emits the status the loop routes on.
 
-Too big for one planning session? Run `/wayfinder` yourself to chart it, then `/plan <map reference>`. ([ADR-0004](docs/adr/0004-adopt-skills-v1-1-within-role-pipeline.md))
+Too big for one planning session? Run `/wayfinder` yourself to chart it, then `/plan <map reference>`.
+
+### Bugs and small changes: skip the planning
+
+```bash
+role-router fix   "checkout total is wrong when a coupon is applied"
+role-router quick "add a --json flag to the export command"
+```
+
+Your description becomes the spec of a **quick task** (`FIX-001`, `QUICK-001`, kept in `.role-router/tasks/`, never committed), which then runs the normal loop: Builder on the lite chain with fallback, review on another vendor, docs. For a fix the Builder reproduces the bug with a failing test first and writes the root cause into the task's Notes; for a small change it works test-first. **Size guard:** if the work needs a new or changed public interface, a design or product decision, or is bigger than it sounded, the Builder stops with `human_needed` and points you to `/plan` instead of improvising a design on a lighter model. `--no-run` only creates the task. ([ADR-0004](docs/adr/0004-adopt-skills-v1-1-within-role-pipeline.md))
 
 ## Command reference
 
@@ -133,7 +142,8 @@ Too big for one planning session? Run `/wayfinder` yourself to chart it, then `/
 | `role-router configure [--print]` | Setup wizard: accounts, models, chains → `~/.role-router/config.json` |
 | `role-router run <role> [arg] [--headless] [--profile=ID] [--dry-run]` | Run one role (`architect`, `builder`, `worker`/`review`, `docs`, `escalation`) through its chain |
 | `role-router chat <role> "<message>"` | Same, with your message as the prompt instead of the role workflow |
-| `role-router next [TASK] [--loop]` | One build → review → docs iteration, status read from `PLAN.md` after each step |
+| `role-router fix "<bug>"` / `quick "<change>"` | Bug or small change without planning: quick task → build → review → docs |
+| `role-router next [TASK] [--loop]` | One build → review → docs iteration, status read from the board after each step |
 | `role-router fanout <TASK…> [--concurrency=N] [--base=REF]` | Independent tasks in parallel, one worktree each |
 | `role-router fan "<prompt>" [--profiles=a,b] [--worktree]` | One prompt on several models, one answer file each |
 | `role-router pstack [--print]` | Point pstack skills' model panels at your profiles |

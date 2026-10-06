@@ -25,7 +25,7 @@ try {
 const board = loadBoard(root);
 const runs = new Map(listRuns(root).map((r) => [r.task, r]));
 console.log('\nBoard');
-if (!board) console.log('  no PLAN.md');
+if (!board) console.log('  no tasks (no PLAN.md, no quick tasks)');
 for (const t of board?.list ?? []) {
   const last = runs.get(t.id)?.runs.at(-1);
   const where = last ? `${last.role}:${last.profile}:${last.kind}${last.evidence?.commit ? ` @${last.evidence.commit}` : ''}` : '';
