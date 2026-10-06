@@ -25,6 +25,7 @@ import { existsSync, mkdirSync } from 'node:fs';
 import { createInterface } from 'node:readline';
 import path from 'node:path';
 import { dispatch } from '../lib/dispatch.mjs';
+import { batchProblems, loadBoard } from '../lib/board.mjs';
 import { loadConfig } from '../lib/config.mjs';
 import { ensureStateDir, repoRootFor } from '../lib/runs.mjs';
 
@@ -90,10 +91,13 @@ function buildOne(id) {
     dispatch({ role: 'builder', task: id, message: id, mode: 'headless', cwd, repoRoot: REPO })
       .then((out) => {
         const results = out.runs.map((r) => r.result);
+        // An agent that exits cleanly has not necessarily built anything: the board is the truth.
+        const status = loadBoard(REPO)?.byId.get(id)?.status;
+        const built = out.status === 'ok' && status === 'review';
         resolve({
           id, branch, cwd,
-          ok: out.status === 'ok',
-          stage: out.status === 'ok' ? 'build' : out.status,
+          ok: built,
+          stage: built ? 'build' : out.status === 'ok' ? `status ${status}` : out.status,
           profile: out.profile ?? out.runs.at(-1)?.profile,
           path: out.runs.map((r) => r.profile).join(' → '),
           cost: results.reduce((sum, r) => sum + (r.costUsd ?? 0), 0) || undefined,
@@ -132,6 +136,10 @@ async function pool(items, n, worker) {
 
 // ── main ──────────────────────────────────────────────────────────────────────
 console.log(`Fan-out: ${ids.length} task(s), concurrency ${concurrency}${useWorktree ? ', isolated worktrees' : ', SHARED dir'}.`);
+// Refuse what cannot be built now, before any paid run.
+const refused = batchProblems(loadBoard(REPO), ids);
+if (refused.size) die(`Not buildable as a parallel batch:\n${[...refused].map(([id, why]) => `  ${id}: ${why}`).join('\n')}`);
+
 let roleConfig;
 try { roleConfig = loadConfig(); } catch (e) { die(e.message); }
 if (!roleConfig.roles.builder) die('Builder has no chain in the role config.');
