@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import { mkdirSync, mkdtempSync, writeFileSync } from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
-import { detectStacks, resolveSkills, verificationSkills } from '../lib/skills.mjs';
+import { detectStacks, renderSkillsBlock, resolveSkills, verificationSkills } from '../lib/skills.mjs';
 
 const manifest = {
   maxSkills: 3,
@@ -62,4 +62,17 @@ test("the repo's verify-<app> skill is handed to verification roles by absolute 
   assert.equal(r.skills[2].path, path.join(repo, '.cursor/skills/verify-shop/SKILL.md'));
   const arch = resolveSkills({ role: 'architect', agent: 'codex', repoRoot: repo, manifest: m, home });
   assert.ok(!arch.skills.some((s) => s.name === 'verify-shop'));
+});
+
+test('consulted skills are handed as read-only references, outside the cap, even when user-only', () => {
+  const { repo, home } = world({ agentsSkills: ['grilling', 'architect'] });
+  mkdirSync(path.join(home, '.agents/skills/architect/references'), { recursive: true });
+  writeFileSync(path.join(home, '.agents/skills/architect/references/runner-prompt.md'), 'x');
+  const m = { ...manifest, maxSkills: 1, roles: { ...manifest.roles, architect: { core: ['grilling'], consult: ['architect'] } } };
+  const r = resolveSkills({ role: 'architect', agent: 'codex', repoRoot: repo, manifest: m, home });
+  assert.deepEqual(r.skills.map((s) => s.name), ['grilling']);
+  assert.deepEqual(r.references.map((x) => [x.name, x.files.map((f) => path.basename(f))]), [['architect', ['runner-prompt.md']]]);
+  const block = renderSkillsBlock(r);
+  assert.match(block, /Reference material \(read-only\)[\s\S]*runner-prompt\.md/);
+  assert.ok(!resolveSkills({ role: 'architect', agent: 'claude', repoRoot: repo, manifest: m, home }).references.length, 'claude cannot see it in this world');
 });

@@ -120,7 +120,7 @@ role-router fanout TASK-002 TASK-003
 role-router status               # accounts, board, last runs, pending handoffs
 ```
 
-What `/plan` produces: a spec with a **Grounding** section (traced subsystems), the caller's **Usage**, an **Interface sketch** (types and signatures with stub bodies), the **Design decision** (chosen shape vs the strongest rejected alternative), and tracer-bullet tickets with `depends:` edges. When the sketch is cross-cutting, the first ticket lands the sketch itself so later tickets build in parallel against a fixed contract. For designs one session cannot settle, `/plan` sends you to `/architect`; for risky ones it recommends `/interrogate` before tickets.
+What `/plan` produces: a spec with a **Grounding** section (traced subsystems), the caller's **Usage**, an **Interface sketch** (types and signatures with stub bodies), the **Design decision** (chosen shape vs the strongest rejected alternative), and tracer-bullet tickets with `depends:` edges. When the sketch is cross-cutting, the first ticket lands the sketch itself so later tickets build in parallel against a fixed contract. For a design one session cannot settle, `/plan` offers a **multi-model design round**: with your OK it sends architect's runner brief to one top profile per account through `fan --worktree`, each model writes an independent design package, and `/plan` scores them against a rubric, picks a base, grafts the best ideas from the others and records the synthesis decision. No code is written. For risky designs it also recommends `/interrogate` before tickets.
 
 The Builder implements against the sketch and never invents a public type or signature: a needed change sets `human_needed` and stops. Review enforces the sketch and the acceptance criteria and emits the status the loop routes on.
 
@@ -200,7 +200,7 @@ Each role run is **handed its skills by dispatch**, not left to guess. [`skills-
 
 | Role | Core | Plus |
 |---|---|---|
-| Architect | `grilling`, `domain-modeling`, `codebase-design` | `prototype`, `research` |
+| Architect | `grilling`, `domain-modeling`, `codebase-design` | `prototype`, `research`; `architect` references (read-only, for the design round) |
 | Builder / Escalation | `tdd`, `diagnosing-bugs` (+ `codebase-design` for Escalation) | repo `verify-<app>` |
 | Review | `code-review` | repo `verify-<app>` |
 | Docs | `pr` | |

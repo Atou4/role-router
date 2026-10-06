@@ -139,6 +139,7 @@ const scenarios = {
     checks.push(['every builder profile gets tdd, diagnosing-bugs and the repo verify-sandbox skill', chain.every((p) => ['tdd', 'diagnosing-bugs', 'verify-sandbox'].every((s) => p.skills.includes(s)))]);
     const arch = JSON.parse(rr(['run', 'architect', 'x', '--dry-run']).out.split('\n').slice(0).join('\n').replace(/^[^{]*/, '')).chain;
     checks.push(['architect starts on top profiles and gets grilling', arch[0].profile.endsWith('-top') && arch[0].skills.includes('grilling') && !arch[0].skills.includes('verify-sandbox')]);
+    checks.push(['every architect profile gets the architect references for the design round', arch.every((p) => p.references.includes('architect'))]);
     checks.push(['launch commands match each agent', chain.find((p) => p.profile === 'ocgo-lite').command === 'opencode' && chain.find((p) => p.profile === 'openai-lite').command === 'codex']);
     return checks;
   },

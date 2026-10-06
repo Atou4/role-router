@@ -63,11 +63,13 @@ function doctor() {
     ...Object.values(manifest.roles).flatMap((r) => [...r.core, ...(r.optional ?? [])]),
     ...Object.values(manifest.stacks).flatMap((s) => s.skills),
   ]);
+  const consulted = new Set(Object.values(manifest.roles).flatMap((r) => r.consult ?? []));
+  for (const name of consulted) roleSkills.add(name);
   for (const name of roleSkills) {
     const where = AGENTS.filter((a) => views[a].has(name));
     const file = where.length ? views[where[0]].get(name) : null;
     if (!file) { flag(`${name}: not installed for any agent${installHint(name)}`); continue; }
-    if (frontmatter(file).userOnly) flag(`${name}: user-only (disable-model-invocation), a role cannot load it`);
+    if (frontmatter(file).userOnly && !consulted.has(name)) flag(`${name}: user-only (disable-model-invocation), a role cannot load it`);
     if (where.length < AGENTS.length) flag(`${name}: missing for ${AGENTS.filter((a) => !where.includes(a)).join(', ')}${installHint(name)}`);
     else ok(dim(name));
   }

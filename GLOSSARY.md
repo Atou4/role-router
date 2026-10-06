@@ -112,6 +112,10 @@ _Avoid_: Nested subagent (that's the upstream mechanism, not the Role-Router fea
 One raw prompt run in parallel on several pinned Profiles, one answer file per Profile. The multi-model backend for skills that compare model families (architect, arena, interrogate, how). Distinct from **Fan-out**, which builds many tasks on one Role's Chain.
 _Avoid_: Fan-out (that is parallel tasks), swarm
 
+**Design Round**:
+An optional step inside the Architect's "design it twice": with the user's consent, one top-tier Profile per Account designs the same seam independently (through **Fan** with worktrees, briefed with architect's runner prompt), and the Architect picks a base by rubric, grafts the best of the rest and records the synthesis. Produces a design, never code.
+_Avoid_: Arena (the pstack skill it borrows from), brainstorm
+
 **Wave**:
 A set of tasks whose dependencies are all already Done, so they can be fanned out together. `/next` builds one task; `/fan-out` builds a Wave.
 _Avoid_: Batch (acceptable loosely), Sprint
