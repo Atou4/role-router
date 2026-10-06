@@ -73,10 +73,11 @@ test('a limited builder propagates waiting and does not review', async () => {
   assert.deepEqual(scripted.calls, ['builder']);
 });
 
-test('a builder that returns ok but leaves the status at building is reported stuck', async () => {
+test('a builder that escalates (leaves building) stops with the escalation command, not a vague stuck', async () => {
   reset(); const root = repo();
   const r = await runNext({ root, dispatch: scripted(root, { builder: 'building' }) });
-  assert.equal(r.stop, 'stuck');
+  assert.equal(r.stop, 'needs_choice');
+  assert.match(r.message, /role-router run escalation TASK-001/);
 });
 
 test('a stopped build with a handoff is resumed before new work', async () => {
@@ -133,4 +134,12 @@ test('a task waiting on a human does not block an explicitly named task or indep
   const r = await runNext({ root, dispatch: scripted(root, { builder: 'review', review: 'passed' }) });
   assert.equal(r.task, 'TASK-002', 'auto-pick skips the waiting task');
   assert.equal(r.stop, 'passed');
+});
+
+test('A: a named task whose dependencies are not done is refused before any paid run', async () => {
+  reset(); const root = repo();
+  const r = await runNext({ root, task: 'TASK-002', dispatch: scripted(root, {}) });
+  assert.equal(r.stop, 'stuck');
+  assert.match(r.message, /depends on TASK-001/);
+  assert.deepEqual(scripted.calls, []);
 });

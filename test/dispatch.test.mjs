@@ -219,3 +219,13 @@ test('a hung agent is stopped at the time limit and the chain moves on', async (
   assert.match(out.runs[0].result.message, /no result after/);
   assert.equal(out.status, 'ok');
 });
+
+test('C: review avoids the account that finished the task through escalation, not only the builder', async () => {
+  const cfg = config(
+    { escalation: { chain: ['a'], onTierDrop: 'auto' }, worker: { chain: ['a', 'b'], onTierDrop: 'auto', avoidBuilderAccount: true } },
+    [profile('a', 'A', 'ok', 'lite'), profile('b', 'B', 'ok', 'lite')],
+  );
+  await dispatch(base({ role: 'escalation', task: 'TASK-001' }), deps(cfg));
+  const review = await dispatch(base({ role: 'review', task: 'TASK-001' }), deps(cfg));
+  assert.equal(review.profile, 'b');
+});

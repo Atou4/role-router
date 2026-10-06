@@ -88,3 +88,21 @@ test('an agent that exits 0 without producing a result is transient (retried), a
   assert.equal(classify(codex, ['{"type":"thread.started","thread_id":"t"}'], 0).kind, 'rate_limited');
   assert.equal(classify(codex, ['{"type":"thread.started","thread_id":"t"}'], 1).kind, 'crashed');
 });
+
+test('E: a Claude run that finished successfully is ok even if a window was reported rejected', () => {
+  const r = classify(claude, [
+    '{"type":"rate_limit_event","rate_limit_info":{"status":"rejected","resetsAt":1791144600,"rateLimitType":"seven_day_opus"}}',
+    '{"type":"result","is_error":false,"result":"done","total_cost_usd":0.1,"num_turns":1,"usage":{"input_tokens":1,"output_tokens":1}}',
+  ], 0);
+  assert.equal(r.kind, 'ok');
+});
+
+test('F: a Codex turn that completed is ok even after a non-fatal error event', () => {
+  const r = classify(codex, [
+    '{"type":"error","message":"stream disconnected, retrying"}',
+    '{"type":"item.completed","item":{"type":"agent_message","text":"done"}}',
+    '{"type":"turn.completed","usage":{"input_tokens":1,"output_tokens":1}}',
+  ], 0);
+  assert.equal(r.kind, 'ok');
+  assert.equal(classify(codex, ['{"type":"turn.failed","error":{"message":"You\'ve hit your usage limit."}}'], 1).kind, 'usage_limit');
+});

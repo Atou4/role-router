@@ -5,6 +5,7 @@ import { mkdtempSync, readFileSync, writeFileSync } from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import { loadBoard, setStatus } from '../lib/board.mjs';
+import { spawn } from 'node:child_process';
 
 const PLAN = '## TASK-001 — A\n- status: planned\n- depends:\n### Scope\nx\n';
 function repo() {
@@ -38,4 +39,16 @@ test('PLAN.md status is only the starting value', () => {
   assert.equal(loadBoard(root).byId.get('TASK-001').status, 'planned');
   assert.throws(() => setStatus(root, 'TASK-001', 'nope'), /Unknown status/);
   assert.throws(() => setStatus(root, 'TASK-404', 'done'), /Unknown task/);
+});
+
+test('D: parallel writers on different tasks never erase each other', async () => {
+  const root = mkdtempSync(path.join(os.tmpdir(), 'rr-board-par-'));
+  const ids = Array.from({ length: 12 }, (_, i) => `TASK-${String(i + 1).padStart(3, '0')}`);
+  writeFileSync(path.join(root, 'PLAN.md'), ids.map((id) => `## ${id} — t\n- status: planned\n- depends:\n`).join('\n'));
+  execFileSync('git', ['init', '-q', '-b', 'main'], { cwd: root });
+  const board = new URL('../scripts/board.mjs', import.meta.url).pathname;
+  // 12 separate processes, like 12 fanout builders finishing together.
+  await Promise.all(ids.map((id) => new Promise((resolve) => spawn(process.execPath, [board, 'set-status', id, 'review'], { cwd: root }).on('close', resolve))));
+  const statuses = loadBoard(root).list.map((t) => t.status);
+  assert.deepEqual(statuses, ids.map(() => 'review'));
 });
