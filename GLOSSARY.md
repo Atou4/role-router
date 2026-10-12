@@ -112,6 +112,10 @@ _Avoid_: Automatic model switch, fallback
 Running many independent Builder tasks at once, each through the configured Builder Adapter with a fresh context and its own git **Worktree**.
 _Avoid_: Nested subagent (that's the upstream mechanism, not the Role-Router feature), Swarm
 
+**Launch**:
+A batch of tasks, possibly across repos, run concurrently through the full Builder → Review → Docs loop, each in its own Worktree, recorded under `~/.role-router/state/launches/` so `watch` can follow it and `stop` can end it. Distinct from **Fan-out**, which only builds.
+_Avoid_: Job, batch run
+
 **Fan**:
 One raw prompt run in parallel on several pinned Profiles, one answer file per Profile. The multi-model backend for skills that compare model families (architect, arena, interrogate, how). Distinct from **Fan-out**, which builds many tasks on one Role's Chain.
 _Avoid_: Fan-out (that is parallel tasks), swarm

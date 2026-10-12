@@ -146,6 +146,19 @@ role-router -C ~/code/IncaCook next
 
 Tasks written as `.agent-board/tasks/<ID>.md` in the same `## <ID> — title` / `status:` / `depends:` format are read too (PLAN.md wins if an id is in both).
 
+### Many tasks at once, across repos: launch, watch, stop
+
+```bash
+role-router launch IncaCook-Server:TASK-001 IncaCook-Server:TASK-011 IncaCook:TASK-101 --detach
+role-router launch --ready --detach        # every buildable task in every repo role-router knows
+role-router watch                          # live: what each agent is doing, for how long, account pauses
+role-router stop IncaCook:TASK-101         # or: role-router stop --all
+```
+
+Each launched task gets its own worktree and runs the **whole** loop (build → review on another vendor → docs), with at most `--concurrency` (default 3) running at once. Anything not buildable, including tasks whose cross-repo dependencies are still open, is refused up front. `--detach` keeps the launch running after you close the terminal (log under `~/.role-router/state/launches/`).
+
+`watch` shows every running agent in every repo, including runs started by `next` or `fanout`, with the last thing it did ("ran npm test", "Edit src/orders.ts"), plus queued and finished launch tasks. `watch --once` prints a single snapshot. `stop` ends an agent within about a second; nothing is retried on another account after a stop, and the handoff is kept so `role-router next <task>` or a new launch resumes the work.
+
 ### Bugs and small changes: skip the planning
 
 ```bash
@@ -164,7 +177,10 @@ Your description becomes the spec of a **quick task** (`FIX-001`, `QUICK-001`, k
 | `role-router chat <role> "<message>"` | Same, with your message as the prompt instead of the role workflow |
 | `role-router fix "<bug>"` / `quick "<change>"` | Bug or small change without planning: quick task → build → review → docs |
 | `role-router next [TASK] [--loop]` | One build → review → docs iteration, status read from the board after each step |
-| `role-router fanout <TASK…> [--concurrency=N] [--base=REF]` | Independent tasks in parallel, one worktree each |
+| `role-router fanout <TASK…> [--concurrency=N] [--base=REF]` | Independent tasks in parallel, one worktree each (build only) |
+| `role-router launch <[Repo:]TASK…> \| --ready [--detach]` | Many tasks across repos through the full loop at once, optionally in the background |
+| `role-router watch [--once]` | Live view of every running agent, queued and finished launch tasks, account pauses |
+| `role-router stop <[Repo:]TASK…> \| --all` | Stop running or queued tasks; handoffs kept for resume |
 | `role-router fan "<prompt>" [--profiles=a,b] [--worktree]` | One prompt on several models, one answer file each |
 | `role-router pstack [--print]` | Point pstack skills' model panels at your profiles |
 | `role-router status [--all]` | This repo's board, runs and handoffs; `--all` (or outside a repo) summarises every repo |

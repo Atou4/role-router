@@ -20,6 +20,8 @@
 //   fanout  two independent tasks in parallel worktrees
 //   fix     `role-router fix "<bug>"`: reproduce with a failing test, fix, review on another vendor, docs
 //   guard   `role-router quick "<a redesign>"`: the Builder refuses to design on the fly (human_needed)
+//   launch  `launch --detach` two tasks: returns at once, watch shows live agents, both finish the full loop
+//   stop    a launched task is stopped mid-build: agent gone, handoff kept, no fallback
 
 import { execFileSync, spawnSync } from 'node:child_process';
 import { chmodSync, existsSync, mkdirSync, readdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
@@ -27,6 +29,9 @@ import os from 'node:os';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { proposeConfig } from '../lib/setup.mjs';
+import { isAlive, listActive } from '../lib/active.mjs';
+
+const sleep = (ms) => Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, ms);
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const CLI = path.join(ROOT, 'role-router');
@@ -70,7 +75,7 @@ ${scope}
 ### Interface
 \`\`\`js
 // ${file}
-${title.includes('divide') ? 'export function divide(a, b) { throw new Error("not implemented"); } // throws RangeError on b === 0' : `export function ${title.split(' ')[1]}(a${title.includes('square') ? '' : ', b'}) { throw new Error("not implemented"); }`}
+${title.includes('divide') ? 'export function divide(a, b) { throw new Error("not implemented"); } // throws RangeError on b === 0' : `export function ${title.split(' ')[1]}(a${/square|cube|negate/.test(title) ? '' : ', b'}) { throw new Error("not implemented"); }`}
 \`\`\`
 ### Acceptance Criteria
 - [ ] the function is exported from \`${file}\` with exactly the interface above
@@ -89,7 +94,9 @@ Problem: the sandbox app only adds numbers. Solution: add a few more pure helper
 ${task('TASK-001', 'Add subtract', 'Add `subtract(a, b)` returning a - b to `src/math.js`.', 'src/math.js')}
 ${task('TASK-002', 'Add multiply', 'Add `multiply(a, b)` returning a * b to `src/math.js`.', 'src/math.js')}
 ${task('TASK-003', 'Add divide', 'Create `src/divide.js` exporting `divide(a, b)`.', 'src/divide.js')}
-${task('TASK-004', 'Add square', 'Create `src/square.js` exporting `square(a)` returning a * a.', 'src/square.js')}`);
+${task('TASK-004', 'Add square', 'Create `src/square.js` exporting `square(a)` returning a * a.', 'src/square.js')}
+${task('TASK-005', 'Add cube', 'Create `src/cube.js` exporting `cube(a)` returning a * a * a.', 'src/cube.js')}
+${task('TASK-006', 'Add negate', 'Create `src/negate.js` exporting `negate(a)` returning -a.', 'src/negate.js')}`);
   const verify = path.join(REPO, '.claude', 'skills', 'verify-sandbox');
   mkdirSync(verify, { recursive: true });
   writeFileSync(path.join(verify, 'SKILL.md'), `---
@@ -263,6 +270,62 @@ const scenarios = {
       ['quick on a redesign stops with human_needed (exit 2)', r.code === 2 && status('QUICK-001') === 'human_needed', `exit ${r.code}, status ${status('QUICK-001')}`],
       ['no review ran on it', !records('QUICK-001').some((x) => (x.operation ?? x.role) === 'review')],
       ['it points the user to /plan', /run architect/.test(r.out)],
+    ];
+  },
+
+  launch() {
+    git('checkout', '-q', 'main');
+    const started = Date.now();
+    const r = rr(['launch', '--yes', '--detach', 'TASK-005', 'TASK-006']);
+    const returnedIn = (Date.now() - started) / 1000;
+    const id = /Launch (L\S+)/.exec(r.out)?.[1];
+    const file = path.join(STATE, 'launches', `${id}.json`);
+    let sawLive = false;
+    let record;
+    for (let i = 0; i < 300; i++) {
+      sleep(5000);
+      const screen = rr(['watch', '--once']).out;
+      if (/TASK-00[56]\s+(builder|review|docs)\s+\S+-(lite|top)\s+\d/.test(screen)) sawLive = true;
+      record = JSON.parse(readFileSync(file, 'utf8'));
+      if (record.tasks.every((t) => ['done', 'stopped'].includes(t.state))) break;
+    }
+    const recs = (t) => records(t);
+    const crossVendor = ['TASK-005', 'TASK-006'].every((t) => {
+      const b = recs(t).filter((x) => x.role === 'builder' && x.result.kind === 'ok').at(-1);
+      const v = recs(t).filter((x) => x.operation === 'review' && x.result.kind === 'ok').at(-1);
+      return b && v && b.account !== v.account;
+    });
+    return [
+      ['launch --detach returns immediately with a launch id', r.code === 0 && Boolean(id) && returnedIn < 15, `${returnedIn.toFixed(1)}s, ${id}`],
+      ['watch showed live agents while they worked', sawLive],
+      ['both tasks finished the full loop (passed)', record?.tasks.every((t) => t.stop === 'passed'), record?.tasks.map((t) => `${t.id}:${t.stop ?? t.state}`).join(', ')],
+      ['each ran in its own worktree, reviewed on another vendor', ['TASK-005', 'TASK-006'].every((t) => existsSync(path.join(REPO, '.role-router', 'worktrees', t, '.git'))) && crossVendor],
+    ];
+  },
+
+  stop() {
+    git('checkout', '-q', 'main');
+    const id = /(QUICK-\d+) created/.exec(rr(['quick', '--no-run', 'add cbrt(a), the cube root, in a new src/cbrt.js with a test']).out)?.[1];
+    const r = rr(['launch', '--yes', '--detach', id]);
+    const launchId = /Launch (L\S+)/.exec(r.out)?.[1];
+    let marker;
+    for (let i = 0; i < 90 && !marker; i++) { sleep(2000); marker = listActive(REPO).find((a) => a.task === id && !a.stale); }
+    sleep(4000);
+    const stopOut = rr(['stop', id]).out;
+    let record;
+    for (let i = 0; i < 60; i++) {
+      sleep(2000);
+      record = JSON.parse(readFileSync(path.join(STATE, 'launches', `${launchId}.json`), 'utf8'));
+      if (record.tasks.every((t) => ['done', 'stopped'].includes(t.state))) break;
+    }
+    const lane = record?.tasks[0];
+    const runs = records(id);
+    return [
+      ['the launched agent was visible before the stop', Boolean(marker), marker ? `${marker.profile} pid ${marker.pid}` : 'never seen'],
+      ['stop ended the lane as stopped by the user', lane?.stop === 'aborted' && /stopped by user/.test(lane?.message ?? ''), `${lane?.stop}: ${lane?.message}`],
+      ['the agent process is gone and its marker removed', Boolean(marker) && !isAlive(marker.pid) && !listActive(REPO).some((a) => a.task === id)],
+      ['no fallback to another profile after the stop', runs.length === 1 && runs[0].result.kind === 'stopped', runs.map((x) => `${x.profile}:${x.result.kind}`).join(' → ')],
+      ['handoff kept for a later resume', existsSync(path.join(REPO, '.role-router', 'runs', id, 'handoff.md')), stopOut.trim()],
     ];
   },
 };

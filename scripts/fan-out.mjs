@@ -29,6 +29,7 @@ import { batchProblems, loadBoard } from '../lib/board.mjs';
 import { loadConfig } from '../lib/config.mjs';
 import { ensureStateDir, repoRootFor } from '../lib/runs.mjs';
 import { requireRepo } from '../lib/repos.mjs';
+import { ensureWorktree } from '../lib/worktree.mjs';
 
 // ── args ────────────────────────────────────────────────────────────────────
 const argv = process.argv.slice(2);
@@ -59,7 +60,6 @@ if (!useWorktree && ids.length > 1) {
 
 let REPO;
 try { REPO = repoRootFor(requireRepo(process.cwd(), 'fanout')); } catch (e) { die(e.message); }
-const WT_ROOT = path.join(ensureStateDir(REPO), 'worktrees');
 
 // ── one Builder ───────────────────────────────────────────────────────────────
 function buildOne(id) {
@@ -68,23 +68,7 @@ function buildOne(id) {
     const branch = `task/${id}`;
 
     if (useWorktree) {
-      cwd = path.join(WT_ROOT, id);
-      // A task that stopped on a usage limit keeps its worktree; the next agent resumes in it.
-      if (existsSync(path.join(cwd, '.git'))) return runBuilder();
-      try {
-        // Reuse an existing branch if present; else cut a fresh one from base.
-        const exists = (() => {
-          try { execFileSync('git', ['rev-parse', '--verify', branch], { cwd: REPO, stdio: 'ignore' }); return true; }
-          catch { return false; }
-        })();
-        const addArgs = exists
-          ? ['worktree', 'add', cwd, branch]
-          : ['worktree', 'add', cwd, '-b', branch, base];
-        execFileSync('git', addArgs, { cwd: REPO, stdio: 'pipe' });
-      } catch (e) {
-        const msg = (e.stderr?.toString() || e.message || '').trim();
-        return resolve({ id, ok: false, stage: 'worktree', detail: msg });
-      }
+      try { cwd = ensureWorktree(REPO, id, base); } catch (e) { return resolve({ id, ok: false, stage: 'worktree', detail: e.message }); }
     }
 
     runBuilder();
