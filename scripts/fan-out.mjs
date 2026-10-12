@@ -28,6 +28,7 @@ import { dispatch } from '../lib/dispatch.mjs';
 import { batchProblems, loadBoard } from '../lib/board.mjs';
 import { loadConfig } from '../lib/config.mjs';
 import { ensureStateDir, repoRootFor } from '../lib/runs.mjs';
+import { requireRepo } from '../lib/repos.mjs';
 
 // ── args ────────────────────────────────────────────────────────────────────
 const argv = process.argv.slice(2);
@@ -56,7 +57,8 @@ if (!useWorktree && ids.length > 1) {
   die('Refusing to run >1 task with --no-worktree: parallel builds in one dir corrupt each other. Drop --no-worktree.');
 }
 
-const REPO = repoRootFor(process.cwd());
+let REPO;
+try { REPO = repoRootFor(requireRepo(process.cwd(), 'fanout')); } catch (e) { die(e.message); }
 const WT_ROOT = path.join(ensureStateDir(REPO), 'worktrees');
 
 // ── one Builder ───────────────────────────────────────────────────────────────

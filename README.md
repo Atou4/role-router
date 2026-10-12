@@ -126,6 +126,26 @@ The Builder implements against the sketch and never invents a public type or sig
 
 Too big for one planning session? Run `/wayfinder` yourself to chart it, then `/plan <map reference>`.
 
+### Plans that span several repos
+
+When a feature touches several repos (say a server, a Flutter app and an admin panel that live side by side), `/plan` writes each repo's tasks into that repo's `PLAN.md` and writes cross-repo dependencies as `<repo-folder>:<id>`:
+
+```markdown
+## TASK-012 — Prove the release gates in staging
+- status: planned
+- depends: TASK-010, TASK-011, IncaCook:TASK-102, incacook-admin:TASK-030
+```
+
+TASK-012 stays unbuildable until those tasks are `done` in their own repos. Drive each repo from anywhere with `-C`, and watch them all at once:
+
+```bash
+role-router status --all                                   # every repo: counts and what is buildable now
+role-router -C ~/code/IncaCook-Server fanout TASK-001 TASK-011
+role-router -C ~/code/IncaCook next
+```
+
+Tasks written as `.agent-board/tasks/<ID>.md` in the same `## <ID> — title` / `status:` / `depends:` format are read too (PLAN.md wins if an id is in both).
+
 ### Bugs and small changes: skip the planning
 
 ```bash
@@ -147,7 +167,8 @@ Your description becomes the spec of a **quick task** (`FIX-001`, `QUICK-001`, k
 | `role-router fanout <TASK…> [--concurrency=N] [--base=REF]` | Independent tasks in parallel, one worktree each |
 | `role-router fan "<prompt>" [--profiles=a,b] [--worktree]` | One prompt on several models, one answer file each |
 | `role-router pstack [--print]` | Point pstack skills' model panels at your profiles |
-| `role-router status` | Accounts, chains, board, last run per task, pending handoffs |
+| `role-router status [--all]` | This repo's board, runs and handoffs; `--all` (or outside a repo) summarises every repo |
+| `role-router -C <repo> <command>` | Run any command as if started inside `<repo>`, from anywhere |
 | `role-router limits [pause <account> --until=WHEN \| clear <account>]` | Show or edit paused accounts |
 | `role-router board <next\|wave\|list\|status\|set-status>` | The `PLAN.md` task driver |
 | `role-router skills <doctor\|install\|readme>` | Check and install the skills roles use |

@@ -1,3 +1,4 @@
+import './helpers/isolate.mjs';
 import { test, beforeEach } from 'node:test';
 import assert from 'node:assert/strict';
 import { execFileSync } from 'node:child_process';

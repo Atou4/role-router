@@ -103,6 +103,8 @@ The Builder runs in a separate session, possibly on another vendor's model, and 
   ```
   Every slice starts `status: planned`. `depends:` stays empty for independent slices (see [`docs/task-spec.md`](../docs/task-spec.md)).
 
+**Work spanning several repos:** write each repo's slices into *that* repo's `PLAN.md`, and give ids that are unique across the repos (e.g. TASK-001… in one, TASK-101… in the next). A dependency on another repo's task is written `<repo-folder-name>:<id>`, e.g. `- depends: TASK-010, IncaCook:TASK-102, incacook-admin:TASK-030`. Role Router enforces these edges: the task is not buildable until the other repo's task is `done`. Never leave a cross-repo gate only in prose or in a handoff note.
+
 A slice is ready only when a Builder with **no memory of this conversation and no design authority** could implement it from the file alone.
 
 **Commit the plan** (`PLAN.md` or the board tasks, plus any glossary and ADR changes) on the current branch with a message like `Plan: <feature>`. Builders branch from it and parallel builds run in worktrees cut from it, so an uncommitted plan is invisible to them. Live task status is not part of the commit: `role-router board` keeps it in `.role-router/board/`, outside git.
@@ -110,3 +112,5 @@ A slice is ready only when a Builder with **no memory of this conversation and n
 ## 8. Hand back
 List the task ids with their `depends:` edges, the design decision in one line, and the next command:
 > `role-router next` (one task at a time) or `role-router fanout TASK-001 TASK-002` (independent tasks in parallel).
+
+For a multi-repo plan, give one command per repo with its absolute path, e.g. `role-router -C /abs/path/IncaCook-Server fanout TASK-001 TASK-011`, and mention `role-router status --all` to watch every repo at once.

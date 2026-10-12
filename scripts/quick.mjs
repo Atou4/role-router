@@ -13,18 +13,17 @@
 //
 // Exit codes match `next`: 0 passed · 1 failed · 2 needs you · 3 aborted · 75 every profile limited.
 
-import { execFileSync } from 'node:child_process';
 import { createQuickTask } from '../lib/board.mjs';
 import { runNext } from '../lib/next.mjs';
+import { requireRepo } from '../lib/repos.mjs';
 
 const [kind, ...rest] = process.argv.slice(2);
 const noRun = rest.includes('--no-run');
 const request = rest.filter((a) => a !== '--no-run').join(' ');
-let root = process.cwd();
-try { root = execFileSync('git', ['rev-parse', '--show-toplevel'], { encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'] }).trim(); } catch { /* not a git dir */ }
 
 const EXIT = { passed: 0, drained: 0, human_needed: 2, gaps_found: 2, needs_choice: 2, aborted: 3, waiting: 75, crashed: 1, stuck: 1 };
 try {
+  const root = requireRepo(process.cwd(), kind);
   const task = createQuickTask(root, kind, request);
   console.log(`${task.id} created: ${task.file}`);
   if (noRun) { console.log(`run it with: role-router next ${task.id}`); process.exit(0); }

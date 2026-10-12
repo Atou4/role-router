@@ -3,6 +3,13 @@ set -euo pipefail
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
+# role-router -C <repo> <command> ...   run as if started inside <repo> (like git -C)
+if [ "${1:-}" = "-C" ]; then
+  [ -n "${2:-}" ] || { echo "role-router: -C needs a directory" >&2; exit 1; }
+  cd "$2" || { echo "role-router: cannot cd into $2" >&2; exit 1; }
+  shift 2
+fi
+
 case "${1:-}" in
   run)
     shift
@@ -52,7 +59,7 @@ case "${1:-}" in
     exec node "$ROOT/scripts/fan-out.mjs" "$@"
     ;;
   *)
-    echo 'Usage: role-router <configure|run|chat|fix|quick|next|fanout|fan|status|limits|board|skills|pstack> ...  (see README)' >&2
+    echo 'Usage: role-router [-C <repo>] <configure|run|chat|fix|quick|next|fanout|fan|status|limits|board|skills|pstack> ...  (see README)' >&2
     exit 1
     ;;
 esac

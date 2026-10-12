@@ -11,35 +11,33 @@
 // Status contract (docs/task-spec.md): planned -> building -> review ->
 // {passed | gaps_found | human_needed} -> done. "buildable" = planned with every dependency done.
 
-import { execFileSync } from 'node:child_process';
 import { STATUSES, isBuildable, loadBoard, planPath, setStatus } from '../lib/board.mjs';
 
-function repoRoot() {
-  try { return execFileSync('git', ['rev-parse', '--show-toplevel'], { encoding: 'utf8' }).trim(); }
-  catch { return process.cwd(); }
-}
-const ROOT = repoRoot();
+import { requireRepo } from '../lib/repos.mjs';
+
 const fail = (msg) => { console.error(msg); process.exit(1); };
+let ROOT;
+try { ROOT = requireRepo(process.cwd(), `board ${process.argv[2] ?? 'list'}`); } catch (e) { fail(`role-router: ${e.message}`); }
 const board = () => loadBoard(ROOT) ?? fail(`No tasks: no PLAN.md at ${planPath(ROOT)} and no quick tasks. Run the Architect role, or role-router fix|quick.`);
 
 const [cmd, ...rest] = process.argv.slice(2);
 
 switch (cmd) {
   case 'next': {
-    const { list, byId } = board();
-    const t = list.find((x) => isBuildable(x, byId));
+    const b = board();
+    const t = b.list.find((x) => isBuildable(x, b));
     console.log(t ? JSON.stringify({ id: t.id, title: t.title, depends: t.depends, branch: `task/${t.id}` }, null, 2) : 'NONE');
     break;
   }
   case 'wave': {
-    const { list, byId } = board();
-    console.log(JSON.stringify(list.filter((t) => isBuildable(t, byId)).map((t) => ({ id: t.id, title: t.title, depends: t.depends })), null, 2));
+    const b = board();
+    console.log(JSON.stringify(b.list.filter((t) => isBuildable(t, b)).map((t) => ({ id: t.id, title: t.title, depends: t.depends })), null, 2));
     break;
   }
   case 'list': {
-    const { list, byId } = board();
-    for (const t of list) {
-      console.log(`${isBuildable(t, byId) ? 'BUILDABLE' : '         '}  ${t.id}  ${t.status.padEnd(12)}  depends=${t.depends.join(',') || '-'}  ${t.title}`);
+    const b = board();
+    for (const t of b.list) {
+      console.log(`${isBuildable(t, b) ? 'BUILDABLE' : '         '}  ${t.id}  ${t.status.padEnd(12)}  depends=${t.depends.join(',') || '-'}  ${t.title}`);
     }
     break;
   }

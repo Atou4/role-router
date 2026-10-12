@@ -27,7 +27,8 @@ Two small conventions let `/next` and `/fan-out` schedule work deterministically
 
 - The heading id must match `TASK-\S+`. Title after a `—`, `-`, or `:` is optional.
 - `status:` and `depends:` are read only **above** the first `###` subsection.
-- `depends:` is a comma/space list of task ids; empty = independent.
+- `depends:` is a comma/space list of task ids; empty = independent. A task in another repo is written `<repo-folder-name>:<id>` (e.g. `IncaCook:TASK-102`); it resolves to a sibling folder of that name, or a repo role-router has been used in, and counts as done only when it is `done` on that repo's board.
+- Tasks may also live in `.agent-board/tasks/<ID>.md` in the same section format; files there in other formats are ignored, and PLAN.md wins when an id appears in both.
 - `status:` in `PLAN.md` is the task's **starting** status. Live status is runtime state kept in `.role-router/board/` at the main checkout (outside git, shared by every branch and worktree), written by `role-router board set-status`. Status changes therefore never dirty a working tree, and parallel builders in worktrees update one shared board.
 - `Testing Decisions` records the user-approved public seams and observable behavior. Builders do not invent lower-level seams in a fresh context.
 
