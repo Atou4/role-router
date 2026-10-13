@@ -159,6 +159,10 @@ Each launched task gets its own worktree and runs the **whole** loop (build → 
 
 `watch` shows every running agent in every repo, including runs started by `next` or `fanout`, with the last thing it did ("ran npm test", "Edit src/orders.ts"), plus queued and finished launch tasks. `watch --once` prints a single snapshot. `stop` ends an agent within about a second; nothing is retried on another account after a stop, and the handoff is kept so `role-router next <task>` or a new launch resumes the work.
 
+### After you merge: sync
+
+`role-router sync` marks a task `done` when its `task/<ID>` PR is merged on GitHub (through `gh`), or, without `gh`, when a `passed` task's branch is merged into the default branch. Its worktree is removed and dependent tasks become buildable. `launch --ready` and `next` (when it picks the task) sync first, so a dependency chain keeps moving as you merge; `sync --all` covers every known repo.
+
 ### When work stops: escalations
 
 Routine stops are handled without you (all configurable under `escalation` in the config):
@@ -203,6 +207,7 @@ Your description becomes the spec of a **quick task** (`FIX-001`, `QUICK-001`, k
 | `role-router launch <[Repo:]TASK…> \| --ready [--detach]` | Many tasks across repos through the full loop at once, optionally in the background |
 | `role-router watch [--once]` | Live view of every running agent, queued and finished launch tasks, account pauses |
 | `role-router stop <[Repo:]TASK…> \| --all` | Stop running or queued tasks; handoffs kept for resume |
+| `role-router sync [--all]` | Merged `task/<ID>` PRs (or merged `passed` branches) → `done`; worktrees cleaned up |
 | `role-router inbox` | Everything waiting on a human decision, across repos |
 | `role-router resolve <Repo:TASK \| #n> --option N \| --note "…"` | Answer it; the decision is applied and the task relaunched |
 | `role-router fan "<prompt>" [--profiles=a,b] [--worktree]` | One prompt on several models, one answer file each |

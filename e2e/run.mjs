@@ -20,6 +20,7 @@
 //   fanout  two independent tasks in parallel worktrees
 //   fix     `role-router fix "<bug>"`: reproduce with a failing test, fix, review on another vendor, docs
 //   guard   `role-router quick "<a redesign>"`: the Builder refuses to design on the fly (human_needed)
+//   sync    merge the loop's task like a human would; sync marks it done
 //   launch  `launch --detach` two tasks: returns at once, watch shows live agents, both finish the full loop
 //   stop    a launched task is stopped mid-build: agent gone, handoff kept, no fallback
 
@@ -44,7 +45,7 @@ const STATE = path.join(SBX, 'state');
 const CONFIG = path.join(SBX, 'config.json');
 const SHIM = path.join(SBX, 'shim');
 
-const env = (extra = {}) => ({ ...process.env, ROLE_ROUTER_CONFIG: CONFIG, ROLE_ROUTER_STATE_DIR: STATE, ...extra });
+const env = (extra = {}) => ({ ...process.env, ROLE_ROUTER_CONFIG: CONFIG, ROLE_ROUTER_STATE_DIR: STATE, ROLE_ROUTER_NOTIFY: '0', ...extra });
 function rr(cliArgs, { extraEnv, timeoutMin = 15 } = {}) {
   const started = Date.now();
   const r = spawnSync(CLI, cliArgs, { cwd: REPO, env: env(extraEnv), encoding: 'utf8', timeout: timeoutMin * 60_000, input: '' });
@@ -270,6 +271,20 @@ const scenarios = {
       ['quick on a redesign stops with human_needed (exit 2)', r.code === 2 && status('QUICK-001') === 'human_needed', `exit ${r.code}, status ${status('QUICK-001')}`],
       ['no review ran on it', !records('QUICK-001').some((x) => (x.operation ?? x.role) === 'review')],
       ['it points the user to /plan', /run architect/.test(r.out)],
+      ['it is in the inbox with a question', (() => { const inbox = rr(['inbox']).out; return /QUICK-001\s+\[\w[\w-]*\]/.test(inbox); })()],
+      ['resolve records a decision for it', /Decision recorded for repo:QUICK-001/.test(rr(['resolve', 'QUICK-001', '--note', 'keep the current API; out of scope', '--no-run']).out)],
+    ];
+  },
+
+  sync() {
+    // Merge the loop's passed TASK-001 the way a human would, then sync.
+    git('checkout', '-q', 'main');
+    const before = status('TASK-001');
+    execFileSync('git', ['-c', 'user.email=t@t', '-c', 'user.name=t', 'merge', '-q', '--no-ff', 'task/TASK-001', '-m', 'merge TASK-001'], { cwd: REPO });
+    const out = rr(['sync']).out;
+    return [
+      ['TASK-001 was passed before the merge', before === 'passed', `was ${before}`],
+      ['sync marks the merged task done', status('TASK-001') === 'done' && /done → TASK-001/.test(out), out.trim()],
     ];
   },
 
