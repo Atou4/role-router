@@ -20,6 +20,10 @@ _Avoid_: Role, command name
 A persistently identified unit of user intent that survives sessions and Role transitions. Every invocation creates or resumes one; planned tasks reuse their task ID, while direct requests receive an automatic identity. A Work Item does not require a plan unless its scope demands one.
 _Avoid_: Conversation, model session
 
+**Project**:
+A named group of repos that make up one product, with its own persistent Architect session (`role-router project open`), a private decision log, and a live brief regenerated from the files at every opening. `-P <project>` scopes multi-repo commands to it.
+_Avoid_: Workspace (ambiguous with git worktrees), repo
+
 **Quick Task**:
 A Work Item created from a one-line request by `role-router fix` (`FIX-…`) or `role-router quick` (`QUICK-…`), with no Architect spec. It runs the normal Builder → Review → Docs loop; its Builder must stop with `human_needed` when the request turns out to need design work.
 _Avoid_: Hotfix (it still goes through review), ad-hoc chat

@@ -126,6 +126,21 @@ The Builder implements against the sketch and never invents a public type or sig
 
 Too big for one planning session? Run `/wayfinder` yourself to chart it, then `/plan <map reference>`.
 
+### Projects: one Architect session per product
+
+A **project** groups the repos of one product and gives it a persistent Architect session: the place to plan, decide, unblock stuck tasks and dispatch work across all of them.
+
+```bash
+role-router project create incacook --repos IncaCook-Server,IncaCook,incacook-admin [--profile openai-top]
+role-router project open incacook          # start, or resume, the project's Architect session
+role-router -P incacook status             # any command, scoped to the project: inbox, launch --ready, sync, watch, stop --all
+```
+
+- **Files stay the truth.** Every `project open` regenerates a *live brief* from the boards, the inbox, running work, recent launches, account pauses and the project's decision log, and hands it to the session; it overrides anything older in the conversation. The conversation itself is resumed (Codex `resume`, Claude `--resume`) for continuity; `--fresh` starts over.
+- **The session is a console, not a coder.** It reads run records and escalations, edits plans and specs, and acts through role-router (`resolve`, `launch --detach`, `sync`, `pr`, `stop`), asking you before anything that spends agent time or changes shared state. Feature code is still written by Builders in task worktrees.
+- **Decisions** you make there are appended to the project's private decision log (`~/.role-router/state/projects/<name>/decisions.md`).
+- **Host:** the profile you choose (`--profile` on `open`, or `project set <name> --profile ID`), otherwise the first usable profile of your Architect chain. Because it starts other agents, the session runs without the Codex workspace sandbox.
+
 ### Plans that span several repos
 
 When a feature touches several repos (say a server, a Flutter app and an admin panel that live side by side), `/plan` writes each repo's tasks into that repo's `PLAN.md` and writes cross-repo dependencies as `<repo-folder>:<id>`:
@@ -214,6 +229,8 @@ Your description becomes the spec of a **quick task** (`FIX-001`, `QUICK-001`, k
 | `role-router pstack [--print]` | Point pstack skills' model panels at your profiles |
 | `role-router status [--all]` | This repo's board, runs and handoffs; `--all` (or outside a repo) summarises every repo |
 | `role-router -C <repo> <command>` | Run any command as if started inside `<repo>`, from anywhere |
+| `role-router project create\|list\|show\|add\|remove\|set\|open` | Projects: group repos, open the project's Architect session |
+| `role-router -P <project> <command>` | Scope status, inbox, launch --ready, sync, watch, stop --all to one project |
 | `role-router limits [pause <account> --until=WHEN \| clear <account>]` | Show or edit paused accounts |
 | `role-router board <next\|wave\|list\|status\|set-status>` | The `PLAN.md` task driver |
 | `role-router skills <doctor\|install\|readme>` | Check and install the skills roles use |

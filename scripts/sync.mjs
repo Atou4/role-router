@@ -4,13 +4,14 @@
 // role-router sync --all    the same for every repo role-router knows
 
 import path from 'node:path';
-import { gitRoot, knownRepos, requireRepo } from '../lib/repos.mjs';
+import { gitRoot, requireRepo } from '../lib/repos.mjs';
+import { activeProject, scopeRepos } from '../lib/scope.mjs';
 import { repoRootFor } from '../lib/runs.mjs';
 import { syncRepo } from '../lib/sync.mjs';
 
 try {
-  const all = process.argv.includes('--all') || !gitRoot();
-  const roots = all ? knownRepos().map((r) => r.root) : [repoRootFor(requireRepo(process.cwd(), 'sync'))];
+  const all = process.argv.includes('--all') || !gitRoot() || Boolean(activeProject());
+  const roots = all ? scopeRepos().map((r) => r.root) : [repoRootFor(requireRepo(process.cwd(), 'sync'))];
   let total = 0;
   for (const root of roots) {
     const r = syncRepo(root);

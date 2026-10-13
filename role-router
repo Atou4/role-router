@@ -4,11 +4,16 @@ set -euo pipefail
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
 # role-router -C <repo> <command> ...   run as if started inside <repo> (like git -C)
-if [ "${1:-}" = "-C" ]; then
-  [ -n "${2:-}" ] || { echo "role-router: -C needs a directory" >&2; exit 1; }
-  cd "$2" || { echo "role-router: cannot cd into $2" >&2; exit 1; }
+# role-router -P <project> <command> ... scope the command to one project's repos
+while [ "${1:-}" = "-C" ] || [ "${1:-}" = "-P" ]; do
+  [ -n "${2:-}" ] || { echo "role-router: $1 needs a value" >&2; exit 1; }
+  if [ "$1" = "-C" ]; then
+    cd "$2" || { echo "role-router: cannot cd into $2" >&2; exit 1; }
+  else
+    export ROLE_ROUTER_PROJECT="$2"
+  fi
   shift 2
-fi
+done
 
 case "${1:-}" in
   run)
@@ -50,6 +55,10 @@ case "${1:-}" in
     shift
     exec node "$ROOT/scripts/pstack.mjs" "$@"
     ;;
+  project)
+    shift
+    exec node "$ROOT/scripts/project.mjs" "$@"
+    ;;
   pr)
     shift
     exec node "$ROOT/scripts/pr.mjs" "$@"
@@ -74,7 +83,7 @@ case "${1:-}" in
     exec node "$ROOT/scripts/fan-out.mjs" "$@"
     ;;
   *)
-    echo 'Usage: role-router [-C <repo>] <configure|run|chat|fix|quick|next|fanout|launch|watch|stop|inbox|resolve|sync|pr|fan|status|limits|board|skills|pstack> ...  (see README)' >&2
+    echo 'Usage: role-router [-C <repo>] [-P <project>] <project|configure|run|chat|fix|quick|next|fanout|launch|watch|stop|inbox|resolve|sync|pr|fan|status|limits|board|skills|pstack> ...  (see README)' >&2
     exit 1
     ;;
 esac

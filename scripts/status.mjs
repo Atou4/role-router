@@ -7,12 +7,13 @@
 import { accountStates } from '../lib/accounts.mjs';
 import { isBuildable, loadBoard } from '../lib/board.mjs';
 import { loadConfig } from '../lib/config.mjs';
-import { gitRoot, knownRepos, registerRepo } from '../lib/repos.mjs';
+import { gitRoot, registerRepo } from '../lib/repos.mjs';
+import { activeProject, scopeRepos } from '../lib/scope.mjs';
 import { repoRootFor, listRuns } from '../lib/runs.mjs';
 
 const dim = (s) => `\x1b[2m${s}\x1b[0m`;
 const here = gitRoot(process.cwd());
-const all = process.argv.includes('--all') || !here;
+const all = process.argv.includes('--all') || !here || Boolean(activeProject());
 const root = here ? repoRootFor(here) : null;
 if (root) registerRepo(root);
 
@@ -28,8 +29,8 @@ try {
 }
 
 if (all) {
-  console.log('\nRepos');
-  const repos = knownRepos();
+  console.log(activeProject() ? `\nProject ${activeProject()}` : '\nRepos');
+  const repos = scopeRepos();
   if (!repos.length) console.log('  none yet: role-router remembers a repo the first time you run it there');
   for (const r of repos) {
     const b = loadBoard(r.root);

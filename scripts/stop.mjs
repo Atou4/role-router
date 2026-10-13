@@ -9,7 +9,8 @@
 import path from 'node:path';
 import { isAlive, listActive, requestStop } from '../lib/active.mjs';
 import { listLaunches, stopLaunch } from '../lib/launch.mjs';
-import { gitRoot, knownRepos, resolveRepo } from '../lib/repos.mjs';
+import { gitRoot, resolveRepo } from '../lib/repos.mjs';
+import { scopeRepos } from '../lib/scope.mjs';
 import { repoRootFor } from '../lib/runs.mjs';
 
 const args = process.argv.slice(2);
@@ -25,8 +26,9 @@ const stopTask = (root, id) => {
 
 try {
   if (args.includes('--all')) {
-    for (const l of listLaunches().filter((x) => x.running)) stopLaunch(l.id, stopTask);
-    for (const r of knownRepos()) for (const a of listActive(r.root)) stopTask(r.root, a.task);
+    const roots = new Set(scopeRepos().map((r) => r.root));
+    for (const l of listLaunches().filter((x) => x.running && x.tasks.some((t) => roots.has(t.repoRoot)))) stopLaunch(l.id, stopTask);
+    for (const r of scopeRepos()) for (const a of listActive(r.root)) stopTask(r.root, a.task);
   } else {
     if (args.length === 0) throw new Error('usage: role-router stop <TASK|Repo:TASK ...> | --all');
     const here = gitRoot();

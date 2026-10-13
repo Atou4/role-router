@@ -16,6 +16,7 @@ import { loadBoard, setStatus } from '../lib/board.mjs';
 import { dispatch } from '../lib/dispatch.mjs';
 import { backfill, decisionPrompt, escalationPath, listEscalations, recordDecision } from '../lib/escalations.mjs';
 import { gitRoot, knownRepos, registerRepo, resolveRepo } from '../lib/repos.mjs';
+import { scopeRepos } from '../lib/scope.mjs';
 import { existsSync, readFileSync } from 'node:fs';
 import { countRuns, repoRootFor } from '../lib/runs.mjs';
 
@@ -51,8 +52,10 @@ function target(spec, list) {
 try {
   const here = gitRoot();
   if (here) registerRepo(repoRootFor(here)); // using inbox/resolve inside a repo counts as using it there
-  backfill();
-  const list = listEscalations();
+  const scope = scopeRepos().map((r) => r.root);
+  if (here) scope.push(repoRootFor(here));
+  backfill(scope);
+  const list = listEscalations(scope);
   if (cmd !== 'resolve') { show(list); process.exit(0); }
 
   const e = target(rest.find((a) => !a.startsWith('--') && rest[rest.indexOf(a) - 1] !== '--option' && rest[rest.indexOf(a) - 1] !== '--note'), list);
