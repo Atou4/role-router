@@ -48,7 +48,7 @@ test('a dependent task is not picked until its dependency is done', async () => 
 
 test('review gaps_found stops the loop without running docs', async () => {
   reset(); const root = repo();
-  const r = await runNext({ root, dispatch: scripted(root, { builder: 'review', review: 'gaps_found' }) });
+  const r = await runNext({ root, dispatch: scripted(root, { builder: 'review', review: 'gaps_found' }), policy: { maxReviewRounds: 1 } });
   assert.equal(r.stop, 'gaps_found');
   assert.deepEqual(scripted.calls, ['builder', 'review']);
 });
@@ -76,7 +76,7 @@ test('a limited builder propagates waiting and does not review', async () => {
 
 test('a builder that escalates (leaves building) stops with the escalation command, not a vague stuck', async () => {
   reset(); const root = repo();
-  const r = await runNext({ root, dispatch: scripted(root, { builder: 'building' }) });
+  const r = await runNext({ root, dispatch: scripted(root, { builder: 'building' }), policy: { autoEscalate: false } });
   assert.equal(r.stop, 'needs_choice');
   assert.match(r.message, /role-router run escalation TASK-001/);
 });
@@ -151,4 +151,60 @@ test('verdict found in the live Codex shape: markdown status line followed by mo
   assert.equal(verdictOf('Verdict: **passed**.'), 'passed');
   assert.equal(verdictOf('Final status: human_needed'), 'human_needed');
   assert.equal(verdictOf('nothing to see'), null);
+});
+
+// A dispatch whose effect per role can change on each call: effects[role] is a list consumed in order.
+const sequenced = (root, effects) => {
+  const calls = [];
+  const fn = async ({ role, task }) => {
+    calls.push(role);
+    const next = effects[role]?.shift();
+    if (next) setStatus(root, task, next);
+    return { status: 'ok', runs: [{ profile: 'p', result: { kind: 'ok', summary: '' } }] };
+  };
+  fn.calls = calls;
+  return fn;
+};
+
+test('review gaps go back to the Builder automatically, then pass', async () => {
+  const root = repo();
+  const d = sequenced(root, { builder: ['review', 'review'], review: ['gaps_found', 'passed'] });
+  const r = await runNext({ root, task: 'TASK-001', dispatch: d, policy: { maxReviewRounds: 2 } });
+  assert.equal(r.stop, 'passed');
+  assert.deepEqual(d.calls, ['builder', 'review', 'builder', 'review', 'docs']);
+});
+
+test('review rounds are bounded: after maxReviewRounds the task stops with gaps_found', async () => {
+  const root = repo();
+  const d = sequenced(root, { builder: ['review', 'review', 'review'], review: ['gaps_found', 'gaps_found', 'gaps_found'] });
+  const r = await runNext({ root, task: 'TASK-001', dispatch: d, policy: { maxReviewRounds: 2 } });
+  assert.equal(r.stop, 'gaps_found');
+  assert.match(r.message, /after 2 review round/);
+  assert.deepEqual(d.calls, ['builder', 'review', 'builder', 'review']);
+});
+
+test('a stuck build gets one automatic top-tier escalation, then continues to review and docs', async () => {
+  const root = repo();
+  const d = sequenced(root, { builder: ['building'], escalation: ['review'], review: ['passed'] });
+  const r = await runNext({ root, task: 'TASK-001', dispatch: d, policy: { autoEscalate: true } });
+  assert.equal(r.stop, 'passed');
+  assert.deepEqual(d.calls, ['builder', 'escalation', 'review', 'docs']);
+});
+
+test('if the escalation is stuck too, the loop stops for a human instead of retrying', async () => {
+  const root = repo();
+  const d = sequenced(root, { builder: ['building'], escalation: ['building'] });
+  const r = await runNext({ root, task: 'TASK-001', dispatch: d, policy: { autoEscalate: true } });
+  assert.equal(r.stop, 'needs_choice');
+  assert.match(r.message, /still blocked after a top-tier escalation/);
+  assert.deepEqual(d.calls, ['builder', 'escalation']);
+});
+
+test('a Builder that never starts the task is reported, not looped', async () => {
+  const root = repo();
+  const d = sequenced(root, {});
+  const r = await runNext({ root, task: 'TASK-001', dispatch: d });
+  assert.equal(r.stop, 'stuck');
+  assert.match(r.message, /did not start the task/);
+  assert.deepEqual(d.calls, ['builder']);
 });

@@ -92,3 +92,33 @@ test('watch: events from all three agents become one readable line; the screen l
   assert.match(screen, /App\s+TASK-101\s+queued/);
   assert.match(screen, /launches running: L1/);
 });
+
+test('limits: a launch lane waits for the reset and resumes instead of ending', async () => {
+  const root = repo('r', '## TASK-001 — t\n- status: planned\n- depends:\n');
+  const rec = createLaunch([{ repoRoot: root, repo: 'r', id: 'TASK-001' }], { concurrency: 1 });
+  let clock = 1_000_000;
+  const results = [{ stop: 'waiting', resumeAt: new Date(clock + 60_000), message: 'every usable builder profile is limited' }, { stop: 'passed', message: 'ok' }];
+  let calls = 0;
+  const done = await runLaunch(rec.id, {
+    lane: async () => { calls++; return results.shift(); },
+    policy: { waitForLimits: true },
+    now: () => clock,
+    sleep: async (ms) => { clock += ms; },
+  });
+  assert.equal(calls, 2);
+  assert.equal(done.tasks[0].stop, 'passed');
+});
+
+test('limits: a stop request ends the wait', async () => {
+  const root = repo('r', '## TASK-001 — t\n- status: planned\n- depends:\n');
+  const rec = createLaunch([{ repoRoot: root, repo: 'r', id: 'TASK-001' }], { concurrency: 1 });
+  let clock = 1_000_000;
+  const done = await runLaunch(rec.id, {
+    lane: async () => ({ stop: 'waiting', resumeAt: new Date(clock + 3_600_000), message: 'limited' }),
+    policy: { waitForLimits: true },
+    now: () => clock,
+    sleep: async (ms) => { clock += ms; if (clock > 1_020_000) requestStop(root, 'TASK-001'); },
+  });
+  assert.equal(done.tasks[0].stop, 'aborted');
+  assert.match(done.tasks[0].message, /while waiting/);
+});
