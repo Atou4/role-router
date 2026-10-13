@@ -207,7 +207,7 @@ const scenarios = {
       ['the working tree is clean after the loop (status lives outside git)', !git('status', '--porcelain').includes('PLAN.md')],
       ['the main checkout never left main (the task ran in its worktree)', git('branch', '--show-current') === 'main'],
       ['role-router pr plans the PR from the task branch into main', /task\/TASK-001 → main/.test(rr(['pr', 'TASK-001', '--dry-run']).out)],
-      ['builder left verification evidence (.verify/TASK-001.txt)', existsSync(path.join(REPO, '.verify', 'TASK-001.txt')), 'soft check: prompt-driven'],
+      ['builder left verification evidence (.verify/TASK-001.txt)', [wt1, REPO].some((d) => existsSync(path.join(d, '.verify', 'TASK-001.txt'))), 'soft check: prompt-driven'],
     ];
   },
 
