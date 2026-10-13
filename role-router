@@ -50,6 +50,9 @@ case "${1:-}" in
     shift
     exec node "$ROOT/scripts/pstack.mjs" "$@"
     ;;
+  inbox|resolve)
+    exec node "$ROOT/scripts/inbox.mjs" "$@"
+    ;;
   launch|watch|stop)
     cmd="$1"; shift
     exec node "$ROOT/scripts/$cmd.mjs" "$@"
@@ -63,7 +66,7 @@ case "${1:-}" in
     exec node "$ROOT/scripts/fan-out.mjs" "$@"
     ;;
   *)
-    echo 'Usage: role-router [-C <repo>] <configure|run|chat|fix|quick|next|fanout|launch|watch|stop|fan|status|limits|board|skills|pstack> ...  (see README)' >&2
+    echo 'Usage: role-router [-C <repo>] <configure|run|chat|fix|quick|next|fanout|launch|watch|stop|inbox|resolve|fan|status|limits|board|skills|pstack> ...  (see README)' >&2
     exit 1
     ;;
 esac

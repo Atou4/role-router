@@ -104,6 +104,10 @@ _Avoid_: Routed session
 The file(s) that carry state between Roles across separate sessions/Engines — the board task spec, the working diff, and `board.json`. Replaces in-context model-switching: the Architect can hand planned work to Builder, and Builder can hand discovered planning blockers back to Architect.
 _Avoid_: Context passing, shared memory
 
+**Inbox**:
+The open escalations of every known repo: stops that need a human, each with a type (design, product, environment, stuck-build, review-gaps), a question, options and the tasks it blocks. Answered with `role-router resolve`; the decision is binding for every later prompt on that task.
+_Avoid_: Notifications (they only point at the inbox)
+
 **Escalation**:
 A user-confirmed transition from Builder to the configured Architect after a planning blocker is discovered or the configured failure threshold is reached. Builder writes a Handoff Artifact before the transition; Role Router never changes Roles silently. When Architect finishes, Role Router offers to return the work to Builder; declining preserves a resumable continuation.
 _Avoid_: Automatic model switch, fallback

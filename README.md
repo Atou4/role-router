@@ -159,6 +159,28 @@ Each launched task gets its own worktree and runs the **whole** loop (build → 
 
 `watch` shows every running agent in every repo, including runs started by `next` or `fanout`, with the last thing it did ("ran npm test", "Edit src/orders.ts"), plus queued and finished launch tasks. `watch --once` prints a single snapshot. `stop` ends an agent within about a second; nothing is retried on another account after a stop, and the handoff is kept so `role-router next <task>` or a new launch resumes the work.
 
+### When work stops: escalations
+
+Routine stops are handled without you (all configurable under `escalation` in the config):
+
+| Stop | What role-router does |
+|---|---|
+| Review finds gaps | back to the Builder with the findings, up to `maxReviewRounds` (default 2) |
+| Build stuck after two diagnosed attempts | one automatic run of the Escalation role on a top-tier model (`autoEscalate`) |
+| Every account limited (in a launch) | waits for the earliest reset and resumes from the handoff (`waitForLimits`) |
+
+Everything else lands in **one inbox across all repos**, with a desktop notification (`notify`):
+
+```bash
+role-router inbox
+#  1  IncaCook:TASK-101  [design]  How does the adapter get the deliveryId?
+#        1. Order-keyed topic on the server   2. Pass a deliveryId
+#        blocks: TASK-102, IncaCook-Server:TASK-012
+role-router resolve IncaCook:TASK-101 --option 1        # or --note "…", --repos IncaCook-Server, --no-run
+```
+
+Agents raise escalations in a fixed format (type, question, options, recommendation, affected tasks) at `.role-router/escalations/<TASK>.md`; when one stops without it, role-router files one from the stop and the agent's own words. `resolve` records your decision, which every later prompt for that task receives, then routes it: a **design** decision is applied by a headless Architect to the affected specs (also in other repos) and the task is relaunched; anything else goes back to the Builder with your decision and is relaunched. `watch` shows how many items are waiting.
+
 ### Bugs and small changes: skip the planning
 
 ```bash
@@ -181,6 +203,8 @@ Your description becomes the spec of a **quick task** (`FIX-001`, `QUICK-001`, k
 | `role-router launch <[Repo:]TASK…> \| --ready [--detach]` | Many tasks across repos through the full loop at once, optionally in the background |
 | `role-router watch [--once]` | Live view of every running agent, queued and finished launch tasks, account pauses |
 | `role-router stop <[Repo:]TASK…> \| --all` | Stop running or queued tasks; handoffs kept for resume |
+| `role-router inbox` | Everything waiting on a human decision, across repos |
+| `role-router resolve <Repo:TASK \| #n> --option N \| --note "…"` | Answer it; the decision is applied and the task relaunched |
 | `role-router fan "<prompt>" [--profiles=a,b] [--worktree]` | One prompt on several models, one answer file each |
 | `role-router pstack [--print]` | Point pstack skills' model panels at your profiles |
 | `role-router status [--all]` | This repo's board, runs and handoffs; `--all` (or outside a repo) summarises every repo |
@@ -289,7 +313,8 @@ Installs target Claude Code, Codex and OpenCode together (`~/.agents/skills`, sy
     "worker":     { "chain": ["anthropic-lite", "openai-lite", "zai-lite", "anthropic-top", "openai-top"], "onTierDrop": "auto", "avoidBuilderAccount": true, "onSameAccountReview": "ask" },
     "escalation": { "chain": ["openai-top", "anthropic-top"], "onTierDrop": "ask" }
   },
-  "defaults": { "cooldownMinutes": 60, "transientRetries": 2 }
+  "defaults": { "cooldownMinutes": 60, "transientRetries": 2, "runTimeoutMinutes": 30 },
+  "escalation": { "maxReviewRounds": 2, "autoEscalate": true, "waitForLimits": true, "notify": true }
 }
 ```
 
