@@ -75,3 +75,14 @@ test('-C runs any command as if started inside the repo', () => {
   assert.equal(r.status, 0, r.stderr);
   assert.match(r.stdout, /TASK-012/);
 });
+
+test('running inside a task worktree registers the main checkout, never the worktree', async () => {
+  const { server } = workspace();
+  execFileSync('git', ['-c', 'user.email=t@t', '-c', 'user.name=t', 'commit', '-q', '--allow-empty', '-m', 'init'], { cwd: server });
+  const wt = path.join(server, '.role-router', 'worktrees', 'TASK-012');
+  execFileSync('git', ['worktree', 'add', '-q', '-b', 'task/TASK-012', wt], { cwd: server });
+  requireRepo(wt, 'board');
+  const roots = knownRepos().map((r) => r.root);
+  assert.ok(roots.some((r) => r.endsWith(`${path.sep}Server`)));
+  assert.ok(!roots.some((r) => r.includes('worktrees')));
+});
