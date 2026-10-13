@@ -107,3 +107,13 @@ test('F: a Codex turn that completed is ok even after a non-fatal error event', 
   assert.equal(r.kind, 'ok');
   assert.equal(classify(codex, ['{"type":"turn.failed","error":{"message":"You\'ve hit your usage limit."}}'], 1).kind, 'usage_limit');
 });
+
+test('codex launch: the main checkout board is writable and network is on, in exec, resume and interactive', () => {
+  const p = { model: 'gpt-6-luna' };
+  for (const opts of [{ mode: 'headless' }, { mode: 'interactive' }, { mode: 'headless', resume: 'sess' }]) {
+    const { args } = codex.launch(p, {}, 'go', { cwd: '/repo/.role-router/worktrees/TASK-001', repoRoot: '/repo', ...opts });
+    const joined = args.join(' ');
+    assert.match(joined, /sandbox_workspace_write\.writable_roots=\["\/repo\/\.role-router"\]/);
+    assert.match(joined, /sandbox_workspace_write\.network_access=true/);
+  }
+});

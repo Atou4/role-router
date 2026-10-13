@@ -144,3 +144,11 @@ test('A: a named task whose dependencies are not done is refused before any paid
   assert.match(r.message, /depends on TASK-001/);
   assert.deepEqual(scripted.calls, []);
 });
+
+test('verdict found in the live Codex shape: markdown status line followed by more prose', () => {
+  const text = '## Must-fix\n\n- **`PLAN.md:331`** unverified\n\n**Status:** `gaps_found`\n\nThe status update command failed with `EPERM` while opening `.role-router/board/TASK-001.json`.';
+  assert.equal(verdictOf(text), 'gaps_found');
+  assert.equal(verdictOf('Verdict: **passed**.'), 'passed');
+  assert.equal(verdictOf('Final status: human_needed'), 'human_needed');
+  assert.equal(verdictOf('nothing to see'), null);
+});
