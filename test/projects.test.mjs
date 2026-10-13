@@ -104,3 +104,16 @@ test('open --print shows the host, a full-access interactive launch in the proje
   assert.match(r.stdout, /You are the Architect and orchestrator for the project "printme"/);
   assert.match(r.stdout, /live brief/);
 });
+
+test('a read-only session can look but every acting command is refused by the launcher', () => {
+  const env = { ...process.env, ROLE_ROUTER_READONLY: '1' };
+  for (const args of [['next'], ['launch', '--ready'], ['fix', 'x'], ['board', 'set-status', 'TASK-1', 'done'], ['sync'], ['pr', 'TASK-1'], ['resolve', 'TASK-1'], ['stop', '--all'], ['limits', 'pause', 'openai'], ['fan', 'q']]) {
+    const r = spawnSync(CLI, args, { cwd: os.tmpdir(), encoding: 'utf8', env });
+    assert.equal(r.status, 3, `${args.join(' ')} should be refused`);
+    assert.match(r.stderr, /refused in a read-only session/);
+  }
+  for (const args of [['status'], ['inbox'], ['limits'], ['project', 'list'], ['watch', '--once']]) {
+    const r = spawnSync(CLI, args, { cwd: os.tmpdir(), encoding: 'utf8', env });
+    assert.notEqual(r.status, 3, `${args.join(' ')} should be allowed`);
+  }
+});

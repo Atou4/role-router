@@ -15,6 +15,18 @@ while [ "${1:-}" = "-C" ] || [ "${1:-}" = "-P" ]; do
   shift 2
 done
 
+# A read-only session (role-router project ask, or open --read-only) may only look, never act.
+# Seen live: a project session asked to stay read-only ran `next` "to check readiness" and started a Builder.
+if [ "${ROLE_ROUTER_READONLY:-}" = "1" ]; then
+  case "${1:-} ${2:-}" in
+    "status "*|"watch "*|"inbox "|"board list"|"board status"|"board next"|"board wave"|"limits "|"project list"|"project show"|"skills doctor") ;;
+    *)
+      echo "role-router: refused in a read-only session: '${1:-} ${2:-}' changes state or spends agent time. Tell the human the exact command instead; they can run it, or reopen the session with --act." >&2
+      exit 3
+      ;;
+  esac
+fi
+
 case "${1:-}" in
   run)
     shift

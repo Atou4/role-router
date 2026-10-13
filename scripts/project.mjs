@@ -4,7 +4,9 @@
 // role-router project list | show <name>
 // role-router project add <name> <repo…> | remove <name> <repo…>
 // role-router project set <name> --profile ID     (--profile "" goes back to the Architect chain)
-// role-router project open <name> [--profile ID] [--fresh] [--print]
+// role-router project open <name> [--profile ID] [--fresh] [--print] [--read-only]
+// role-router project ask <name> "<message>" [--profile ID] [--fresh] [--act]   one message, same session, no screen;
+//                                                                read-only unless --act
 //
 // `open` starts (or resumes) the project's Architect session: one conversation for planning,
 // decisions, unblocking and dispatching across the project's repos. A live brief built from the
@@ -49,6 +51,33 @@ try {
     describe(updateProject(name, cmd === 'add' ? { addRepos: positional } : { removeRepos: positional }));
   } else if (cmd === 'set') {
     describe(updateProject(name, { profile: opt('profile') ?? undefined }));
+  } else if (cmd === 'ask') {
+    // One message to the project's session, no interactive screen: same conversation as `open`.
+    const question = positional.join(' ').trim();
+    if (!question) throw new Error('usage: role-router project ask <name> "<message>" [--profile ID] [--fresh]');
+    const project = loadProject(name);
+    const profileId = sessionProfile(project, opt('profile'));
+    const agent = loadConfig().accounts[loadConfig().profiles[profileId].account].agent;
+    const brief = buildBrief(project);
+    writeFileSync(path.join(projectDir(name), 'brief.md'), brief);
+    const previous = has('fresh') ? null : project.sessions?.[profileId]?.id;
+    const oneShot = has('act')
+      ? 'This message arrives without an interactive back-and-forth: answer it, and take state-changing actions only if this message explicitly asks for them.'
+      : 'This message arrives without an interactive back-and-forth, in a READ-ONLY session: role-router refuses every command that changes state or spends agent time. Answer from the brief and read-only commands; where an action is needed, give the exact command for the human to run.';
+    const message = previous
+      ? `Current brief (overrides anything older in this conversation):\n\n${brief}\n---\n${oneShot}\n\n${question}`
+      : `${sessionRules(project)}\n\n---\n\n${brief}\n---\n${oneShot}\n\n${question}`;
+    const sessionId = !previous && agent === 'claude' ? randomUUID() : undefined;
+    if (!has('act')) process.env.ROLE_ROUTER_READONLY = '1'; // enforced by the launcher inside the session
+    const out = await dispatch({
+      role: 'architect', raw: true, message, mode: 'headless', cwd: projectDir(name), task: `project-${name}`,
+      profile: profileId, resume: previous ?? undefined, sessionId, addDirs: project.repos, fullAccess: true, timeoutMinutes: 30,
+    });
+    const last = out.runs.at(-1)?.result;
+    const id = last?.sessionId ?? sessionId ?? previous;
+    if (out.status === 'ok' && id) rememberSession(name, profileId, id);
+    if (out.status !== 'ok') throw new Error(`${out.status}: ${out.message ?? last?.message ?? 'no answer'}${previous ? ` (if the old session is gone: --fresh)` : ''}`);
+    console.log(last?.summary ?? '(no text answer)');
   } else if (cmd === 'open') {
     const project = loadProject(name);
     for (const r of project.repos) { try { syncRepo(r); } catch { /* best effort */ } }
@@ -71,7 +100,8 @@ try {
       console.log(`\n--- message ---\n${message}`);
       process.exit(0);
     }
-    console.log(dim(`Opening ${name} on ${profileId}${previous ? ' (resuming)' : ''}. Brief: ${path.join(projectDir(name), 'brief.md')}`));
+    if (has('read-only')) process.env.ROLE_ROUTER_READONLY = '1';
+    console.log(dim(`Opening ${name} on ${profileId}${previous ? ' (resuming)' : ''}${has('read-only') ? ', read-only' : ''}. Brief: ${path.join(projectDir(name), 'brief.md')}`));
     if (sessionId) rememberSession(name, profileId, sessionId);
     const started = new Date();
     const out = await dispatch(request);
