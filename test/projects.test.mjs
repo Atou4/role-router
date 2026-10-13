@@ -117,3 +117,41 @@ test('a read-only session can look but every acting command is refused by the la
     assert.notEqual(r.status, 3, `${args.join(' ')} should be allowed`);
   }
 });
+
+test('phase 3: project decisions reach every role prompt in the project, and only there', async () => {
+  const { server, other } = workspace();
+  createProject('decided', ['Server'], { cwd: server });
+  const { decisionsPrompt, appendDecision } = await import('../lib/scope.mjs');
+  assert.equal(decisionsPrompt(server), '', 'a fresh log adds nothing');
+  appendDecision('decided', { decision: 'Driver location uses an order-keyed topic', why: 'survives reassignment', affects: ['App:TASK-101'] });
+  assert.match(decisionsPrompt(server), /Project decisions: decided \(binding\)[\s\S]*DECISION: Driver location uses an order-keyed topic\n  - reason \(context only, not part of the decision\): survives reassignment\n  - affects: App:TASK-101/);
+  assert.equal(decisionsPrompt(other), '');
+
+  const { codex } = await import('../lib/agents/codex.mjs');
+  const { dispatch } = await import('../lib/dispatch.mjs');
+  let seen = '';
+  const fake = { ...codex, preflight: () => null, launch: (p, a, prompt) => { seen = prompt; return { command: process.execPath, args: ['-e', 'console.log(JSON.stringify({type:"turn.completed",usage:{}}))'] }; } };
+  const cfg = { version: 2, accounts: { A: { agent: 'codex' } }, profiles: { a: { id: 'a', account: 'A', tier: 'lite' } }, roles: { builder: { chain: ['a'], onTierDrop: 'auto' } }, defaults: { cooldownMinutes: 60, transientRetries: 0, runTimeoutMinutes: 30 } };
+  await dispatch({ role: 'builder', task: 'TASK-001', mode: 'headless', cwd: server }, { agents: { codex: fake, claude: fake, opencode: fake }, config: cfg, skills: () => ({ stacks: [], skills: [], references: [], missing: [], dropped: [] }) });
+  assert.match(seen, /Project decisions: decided \(binding\)/);
+});
+
+test('phase 3: project decide appends a dated entry; resolve copies its answer into the project log; read-only sessions cannot decide', () => {
+  const { server, app } = workspace();
+  createProject('logged', ['Server', 'App'], { cwd: server });
+  const d = spawnSync(CLI, ['project', 'decide', 'logged', 'Use Cloud Run jobs for sweeps', '--why', 'no always-on worker', '--affects', 'Server:TASK-009'], { encoding: 'utf8', env: process.env });
+  assert.equal(d.status, 0, d.stderr);
+  assert.match(d.stdout, /^- \d{4}-\d{2}-\d{2} · DECISION: Use Cloud Run jobs for sweeps\n  - reason \(context only, not part of the decision\): no always-on worker\n  - affects: Server:TASK-009\n  - recorded by: decide/);
+
+  mkdirSync(path.join(app, '.role-router', 'escalations'), { recursive: true });
+  writeFileSync(path.join(app, '.role-router', 'escalations', 'TASK-101.md'), '### Escalation\n- type: design\n- question: Which topic key?\n- options:\n  1. order id\n  2. delivery id\n- affects: Server:TASK-008\n');
+  const r = spawnSync(CLI, ['resolve', 'TASK-101', '--option', '1', '--no-run'], { cwd: app, encoding: 'utf8', env: process.env });
+  assert.equal(r.status, 0, r.stderr);
+  assert.match(r.stdout, /Added to the logged decision log/);
+  assert.match(spawnSync(CLI, ['project', 'show', 'logged'], { encoding: 'utf8', env: process.env }).stdout, /logged/);
+  const log = spawnSync('cat', [path.join(process.env.ROLE_ROUTER_STATE_DIR, 'projects', 'logged', 'decisions.md')], { encoding: 'utf8' }).stdout;
+  assert.match(log, /DECISION: App:TASK-101: Which topic key\? → order id\n  - affects: App:TASK-101, Server:TASK-008\n  - recorded by: resolve/);
+
+  const ro = spawnSync(CLI, ['project', 'decide', 'logged', 'x'], { encoding: 'utf8', env: { ...process.env, ROLE_ROUTER_READONLY: '1' } });
+  assert.equal(ro.status, 3);
+});

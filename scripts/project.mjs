@@ -5,6 +5,7 @@
 // role-router project add <name> <repo…> | remove <name> <repo…>
 // role-router project set <name> --profile ID     (--profile "" goes back to the Architect chain)
 // role-router project open <name> [--profile ID] [--fresh] [--print] [--read-only]
+// role-router project decide <name> "<decision>" [--why "…"] [--affects Repo:TASK,…]   append to the decision log
 // role-router project ask <name> "<message>" [--profile ID] [--fresh] [--act]   one message, same session, no screen;
 //                                                                read-only unless --act
 //
@@ -20,11 +21,12 @@ import { dispatch } from '../lib/dispatch.mjs';
 import { loadConfig } from '../lib/config.mjs';
 import { buildBrief, createProject, decisionsPath, findCodexSession, listProjects, loadProject, projectDir, rememberSession, sessionProfile, sessionRules, updateProject } from '../lib/projects.mjs';
 import { syncRepo } from '../lib/sync.mjs';
+import { appendDecision } from '../lib/scope.mjs';
 
 const [cmd, name, ...rest] = process.argv.slice(2);
 const opt = (n) => { const i = rest.indexOf(`--${n}`); return i !== -1 ? rest[i + 1] : rest.find((a) => a.startsWith(`--${n}=`))?.slice(n.length + 3); };
 const has = (n) => rest.includes(`--${n}`);
-const positional = rest.filter((a, i) => !a.startsWith('--') && !['--repos', '--profile'].includes(rest[i - 1]));
+const positional = rest.filter((a, i) => !a.startsWith('--') && !['--repos', '--profile', '--why', '--affects'].includes(rest[i - 1]));
 const dim = (s) => `\x1b[2m${s}\x1b[0m`;
 
 function describe(p) {
@@ -51,6 +53,12 @@ try {
     describe(updateProject(name, cmd === 'add' ? { addRepos: positional } : { removeRepos: positional }));
   } else if (cmd === 'set') {
     describe(updateProject(name, { profile: opt('profile') ?? undefined }));
+  } else if (cmd === 'decide') {
+    const text = positional.join(' ').trim();
+    const affects = (opt('affects') ?? '').split(',').map((s) => s.trim()).filter(Boolean);
+    loadProject(name);
+    console.log(appendDecision(name, { decision: text, why: opt('why'), affects, source: 'decide' }));
+    console.log(dim('Every task prompt in this project now carries it.'));
   } else if (cmd === 'ask') {
     // One message to the project's session, no interactive screen: same conversation as `open`.
     const question = positional.join(' ').trim();

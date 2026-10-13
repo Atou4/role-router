@@ -16,7 +16,7 @@ import { loadBoard, setStatus } from '../lib/board.mjs';
 import { dispatch } from '../lib/dispatch.mjs';
 import { backfill, decisionPrompt, escalationPath, listEscalations, recordDecision } from '../lib/escalations.mjs';
 import { gitRoot, knownRepos, registerRepo, resolveRepo } from '../lib/repos.mjs';
-import { scopeRepos } from '../lib/scope.mjs';
+import { appendDecision, projectsFor, scopeRepos } from '../lib/scope.mjs';
 import { existsSync, readFileSync } from 'node:fs';
 import { countRuns, repoRootFor } from '../lib/runs.mjs';
 
@@ -62,6 +62,10 @@ try {
   const option = opt('option') !== undefined ? Number(opt('option')) : undefined;
   const decision = recordDecision(e.repoRoot, e.task, { option, note: opt('note') });
   console.log(`Decision recorded for ${e.repo}:${e.task}: ${decision.optionText ?? decision.note}`);
+  for (const p of projectsFor(e.repoRoot)) {
+    appendDecision(p.name, { decision: `${e.repo}:${e.task}: ${e.question} → ${decision.optionText ?? decision.note}`, affects: [`${e.repo}:${e.task}`, ...e.affects], source: 'resolve' });
+    console.log(`Added to the ${p.name} decision log.`);
+  }
   if (rest.includes('--no-run')) process.exit(0);
 
   if (e.type === 'design') {
