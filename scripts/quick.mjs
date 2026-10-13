@@ -15,6 +15,8 @@
 
 import { createQuickTask } from '../lib/board.mjs';
 import { runNext } from '../lib/next.mjs';
+import { ensureWorktree } from '../lib/worktree.mjs';
+import { repoRootFor } from '../lib/runs.mjs';
 import { requireRepo } from '../lib/repos.mjs';
 
 const [kind, ...rest] = process.argv.slice(2);
@@ -27,7 +29,7 @@ try {
   const task = createQuickTask(root, kind, request);
   console.log(`${task.id} created: ${task.file}`);
   if (noRun) { console.log(`run it with: role-router next ${task.id}`); process.exit(0); }
-  const result = await runNext({ root, task: task.id });
+  const result = await runNext({ root: ensureWorktree(repoRootFor(root), task.id), task: task.id, sync: false });
   const steps = result.steps.map((s) => `${s.role}:${s.status}${s.profiles.length ? `(${s.profiles.join('→')})` : ''}`).join('  ');
   console.log(`${task.id}  ${steps || '(no steps)'}\n  ${result.stop}: ${result.message}`);
   if (result.stop === 'human_needed') console.log(`  The Builder's reasoning is under Notes in ${task.file}. If it needs design work: role-router run architect "${request}"`);

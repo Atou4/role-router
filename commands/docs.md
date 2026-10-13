@@ -22,6 +22,11 @@ Default set (skip any that don't apply to the repo):
 - **Changelog / release note** entry if the repo keeps one.
 - **Board/status update** — the task stays `passed` (verified, PR open) until the PR merges; `/next` flips it to `done` on merge. Don't mark it `done` here. If the repo's board has a distinct "PR open / Review" column, move it there.
 
+## 2b. Commit
+Commit everything you changed in this step (changelog, notes in the spec) on the task branch, with a message like `$ARGUMENTS: docs`. Uncommitted edits never reach the PR.
+
+End your final message with a section headed exactly `## PR body` containing the PR body; `role-router pr $ARGUMENTS` uses it verbatim.
+
 ## 3. Open the PR (if asked)
 If the user wants the PR opened, `gh pr create` into the repo's integration branch with the body from step 2. Otherwise print the body for them to use. **Do not merge.**
 

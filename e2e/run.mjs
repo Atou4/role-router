@@ -195,7 +195,8 @@ const scenarios = {
     const built = by('builder');
     const reviewed = by('review');
     let testsPass = false;
-    try { git('checkout', '-q', 'task/TASK-001'); execFileSync('npm', ['test', '--silent'], { cwd: REPO, stdio: 'ignore' }); testsPass = true; } catch { /* reported below */ }
+    const wt1 = path.join(REPO, '.role-router', 'worktrees', 'TASK-001');
+    try { execFileSync('npm', ['test', '--silent'], { cwd: wt1, stdio: 'ignore' }); testsPass = true; } catch { /* reported below */ }
     return [
       ['next exits 0 and stops at passed', r.code === 0 && /passed:/.test(r.out), r.out.trim().split('\n').slice(-2).join(' | ')],
       ['TASK-001 status is passed', status('TASK-001') === 'passed', `status: ${status('TASK-001')}`],
@@ -204,6 +205,8 @@ const scenarios = {
       ['run records carry git evidence', recs.every((x) => x.evidence && typeof x.evidence.uncommittedFiles === 'number')],
       ['task branch has a commit and npm test passes on it', testsPass],
       ['the working tree is clean after the loop (status lives outside git)', !git('status', '--porcelain').includes('PLAN.md')],
+      ['the main checkout never left main (the task ran in its worktree)', git('branch', '--show-current') === 'main'],
+      ['role-router pr plans the PR from the task branch into main', /task\/TASK-001 → main/.test(rr(['pr', 'TASK-001', '--dry-run']).out)],
       ['builder left verification evidence (.verify/TASK-001.txt)', existsSync(path.join(REPO, '.verify', 'TASK-001.txt')), 'soft check: prompt-driven'],
     ];
   },
@@ -248,13 +251,12 @@ const scenarios = {
     let suite = false;
     let testMentions = false;
     try {
-      git('checkout', '-q', 'task/FIX-001');
-      fixed = execFileSync('node', ['-e', "import('./src/stats.js').then(m => console.log(m.average([2, 4])))"], { cwd: REPO, encoding: 'utf8' }).trim() === '3';
-      execFileSync('npm', ['test', '--silent'], { cwd: REPO, stdio: 'ignore' }); suite = true;
-      testMentions = /average/.test(git('diff', 'main', '--', 'test'));
+      const wtf = path.join(REPO, '.role-router', 'worktrees', 'FIX-001');
+      fixed = execFileSync('node', ['-e', "import('./src/stats.js').then(m => console.log(m.average([2, 4])))"], { cwd: wtf, encoding: 'utf8' }).trim() === '3';
+      execFileSync('npm', ['test', '--silent'], { cwd: wtf, stdio: 'ignore' }); suite = true;
+      testMentions = /average/.test(git('diff', 'main', 'task/FIX-001', '--', 'test'));
     } catch { /* reported below */ }
     const notes = readFileSync(path.join(REPO, '.role-router', 'tasks', 'FIX-001.md'), 'utf8').split('### Notes')[1] ?? '';
-    git('checkout', '-q', 'main');
     return [
       ['fix exits 0 and the task passes', r.code === 0 && status('FIX-001') === 'passed', `exit ${r.code}, status ${status('FIX-001')}`],
       ['the bug is fixed on task/FIX-001 and the suite passes', fixed && suite],

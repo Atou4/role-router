@@ -7,7 +7,11 @@
 // --loop keeps going while each task passes. Exit codes match `run`: 0 passed/drained,
 // 1 failed, 2 needs a human or a choice, 3 aborted, 75 every profile limited (retry later).
 
-import { runNext } from '../lib/next.mjs';
+import { loadBoard } from '../lib/board.mjs';
+import { pick, runNext } from '../lib/next.mjs';
+import { repoRootFor } from '../lib/runs.mjs';
+import { syncRepo } from '../lib/sync.mjs';
+import { ensureWorktree } from '../lib/worktree.mjs';
 import { requireRepo } from '../lib/repos.mjs';
 
 const args = process.argv.slice(2);
@@ -18,8 +22,15 @@ const EXIT = { passed: 0, drained: 0, human_needed: 2, gaps_found: 2, needs_choi
 let result;
 try {
   const root = requireRepo(process.cwd(), 'next');
+  const main = repoRootFor(root);
   do {
-    result = await runNext({ root, task: loop ? undefined : task });
+    // Each task runs in its own worktree: the main checkout's branch is never switched.
+    try { syncRepo(main); } catch { /* best effort */ }
+    const board = loadBoard(main);
+    const id = (!loop && task) || (board && pick(board, main));
+    result = id
+      ? await runNext({ root: ensureWorktree(main, id), task: id, sync: false })
+      : await runNext({ root: main, task: undefined, sync: false });
     const path = result.steps.map((s) => `${s.role}:${s.status}${s.profiles.length ? `(${s.profiles.join('→')})` : ''}`).join('  ');
     console.log(`${result.task ?? '-'}  ${path || '(no steps)'}\n  ${result.stop}: ${result.message}`);
   } while (loop && result.stop === 'passed');
