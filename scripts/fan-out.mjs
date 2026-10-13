@@ -30,6 +30,7 @@ import { loadConfig } from '../lib/config.mjs';
 import { ensureStateDir, repoRootFor } from '../lib/runs.mjs';
 import { requireRepo } from '../lib/repos.mjs';
 import { ensureWorktree } from '../lib/worktree.mjs';
+import { keepAwake } from '../lib/awake.mjs';
 
 // ── args ────────────────────────────────────────────────────────────────────
 const argv = process.argv.slice(2);
@@ -145,6 +146,7 @@ if (!autoYes) {
   if (!/^y(es)?$/i.test(ans.trim())) die('Aborted.');
 }
 
+keepAwake();
 const results = await pool(ids, concurrency, buildOne);
 
 // ── summary ────────────────────────────────────────────────────────────────────

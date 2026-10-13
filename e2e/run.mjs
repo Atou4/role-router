@@ -23,6 +23,7 @@
 //   sync    merge the loop's task like a human would; sync marks it done
 //   launch  `launch --detach` two tasks: returns at once, watch shows live agents, both finish the full loop
 //   stop    a launched task is stopped mid-build: agent gone, handoff kept, no fallback
+//   project project over the sandbox: session keeps its conversation, read-only guard holds, decide works
 
 import { execFileSync, spawnSync } from 'node:child_process';
 import { chmodSync, existsSync, mkdirSync, readdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
@@ -31,6 +32,7 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { proposeConfig } from '../lib/setup.mjs';
 import { isAlive, listActive } from '../lib/active.mjs';
+import { keepAwake } from '../lib/awake.mjs';
 
 const sleep = (ms) => Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, ms);
 
@@ -345,10 +347,28 @@ const scenarios = {
       ['handoff kept for a later resume', existsSync(path.join(REPO, '.role-router', 'runs', id, 'handoff.md')), stopOut.trim()],
     ];
   },
+
+  project() {
+    const created = rr(['-C', REPO, 'project', 'create', 'sbx', '--repos', REPO]);
+    const first = rr(['project', 'ask', 'sbx', '--profile', 'openai-top', 'Remember the codeword KIWI. Then reply with only the number of tasks in this project that are passed.'], { timeoutMin: 15 });
+    const second = rr(['project', 'ask', 'sbx', '--profile', 'openai-top', 'What codeword did I give you? Reply with just the word.'], { timeoutMin: 15 });
+    const before = records('TASK-404').length;
+    const guarded = rr(['project', 'ask', 'sbx', '--profile', 'openai-top', `Run exactly this shell command and quote its output verbatim: role-router -C ${REPO} next`], { timeoutMin: 15 });
+    const decided = rr(['project', 'decide', 'sbx', 'Prefer named exports', '--why', 'tree shaking']);
+    const log = readFileSync(path.join(STATE, 'projects', 'sbx', 'decisions.md'), 'utf8');
+    return [
+      ['project created over the sandbox repo', created.code === 0 && /sbx/.test(created.out)],
+      ['the session answers from the live brief', first.code === 0 && /\d/.test(first.out), first.out.trim().slice(0, 80)],
+      ['the conversation continues across calls', /KIWI/i.test(second.out), second.out.trim().slice(0, 40)],
+      ['a read-only session cannot start work (role-router refuses it)', /refused in a read-only session/.test(guarded.out) && records('TASK-404').length === before && !listActive(REPO).length, guarded.out.trim().slice(0, 90)],
+      ['decide records the decision on its own line', decided.code === 0 && /DECISION: Prefer named exports\n  - reason \(context only/.test(log)],
+    ];
+  },
 };
 
 // ── run ────────────────────────────────────────────────────────────────────────
 setUpSandbox();
+keepAwake(); // a sleeping Mac freezes every agent mid-run
 console.log(`sandbox: ${SBX}\n`);
 const results = [];
 for (const [name, fn] of Object.entries(scenarios)) {

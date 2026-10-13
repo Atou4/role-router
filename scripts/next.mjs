@@ -13,6 +13,7 @@ import { repoRootFor } from '../lib/runs.mjs';
 import { syncRepo } from '../lib/sync.mjs';
 import { ensureWorktree } from '../lib/worktree.mjs';
 import { requireRepo } from '../lib/repos.mjs';
+import { keepAwake } from '../lib/awake.mjs';
 
 const args = process.argv.slice(2);
 const task = args.find((a) => !a.startsWith('--'));
@@ -23,6 +24,7 @@ let result;
 try {
   const root = requireRepo(process.cwd(), 'next');
   const main = repoRootFor(root);
+  keepAwake();
   do {
     // Each task runs in its own worktree: the main checkout's branch is never switched.
     try { syncRepo(main); } catch { /* best effort */ }

@@ -18,6 +18,7 @@ import { runNext } from '../lib/next.mjs';
 import { ensureWorktree } from '../lib/worktree.mjs';
 import { repoRootFor } from '../lib/runs.mjs';
 import { requireRepo } from '../lib/repos.mjs';
+import { keepAwake } from '../lib/awake.mjs';
 
 const [kind, ...rest] = process.argv.slice(2);
 const noRun = rest.includes('--no-run');
@@ -29,6 +30,7 @@ try {
   const task = createQuickTask(root, kind, request);
   console.log(`${task.id} created: ${task.file}`);
   if (noRun) { console.log(`run it with: role-router next ${task.id}`); process.exit(0); }
+  keepAwake();
   const result = await runNext({ root: ensureWorktree(repoRootFor(root), task.id), task: task.id, sync: false });
   const steps = result.steps.map((s) => `${s.role}:${s.status}${s.profiles.length ? `(${s.profiles.join('→')})` : ''}`).join('  ');
   console.log(`${task.id}  ${steps || '(no steps)'}\n  ${result.stop}: ${result.message}`);

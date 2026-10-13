@@ -173,6 +173,8 @@ role-router stop IncaCook:TASK-101         # or: role-router stop --all
 
 Each launched task gets its own worktree and runs the **whole** loop (build → review on another vendor → docs), with at most `--concurrency` (default 3) running at once. Anything not buildable, including tasks whose cross-repo dependencies are still open, is refused up front. `--detach` keeps the launch running after you close the terminal (log under `~/.role-router/state/launches/`).
 
+While a launch, `fanout`, `next`, `fix` or `quick` runs, role-router keeps the Mac awake (macOS `caffeinate`, only as long as the work runs; `ROLE_ROUTER_KEEP_AWAKE=0` turns it off). Closing the lid still sleeps the Mac, which freezes every agent until it wakes.
+
 `watch` shows every running agent in every repo, including runs started by `next` or `fanout`, with the last thing it did ("ran npm test", "Edit src/orders.ts"), plus queued and finished launch tasks. `watch --once` prints a single snapshot. `stop` ends an agent within about a second; nothing is retried on another account after a stop, and the handoff is kept so `role-router next <task>` or a new launch resumes the work.
 
 ### After you merge: sync
