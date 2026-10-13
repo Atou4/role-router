@@ -122,3 +122,12 @@ test('limits: a stop request ends the wait', async () => {
   assert.equal(done.tasks[0].stop, 'aborted');
   assert.match(done.tasks[0].message, /while waiting/);
 });
+
+test('a marker whose owner and agent are both gone is cleaned up, not shown', () => {
+  const root = repo('r', '## TASK-001 — t\n- status: building\n- depends:\n');
+  const dir = path.join(root, '.role-router', 'runs', 'TASK-001');
+  mkdirSync(dir, { recursive: true });
+  writeFileSync(path.join(dir, 'active.json'), JSON.stringify({ pid: 999999, ownerPid: 999998, profile: 'p', operation: 'builder', startedAt: new Date().toISOString() }));
+  assert.deepEqual(listActive(root), []);
+  assert.equal(existsSync(path.join(dir, 'active.json')), false);
+});
