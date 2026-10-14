@@ -131,3 +131,16 @@ test('a marker whose owner and agent are both gone is cleaned up, not shown', ()
   assert.deepEqual(listActive(root), []);
   assert.equal(existsSync(path.join(dir, 'active.json')), false);
 });
+
+test('watch: a finished launch row shows the current board status when the board moved on', () => {
+  const now = new Date('2026-10-14T16:00:00Z');
+  const screen = render({
+    now, accounts: [], active: [],
+    launches: [{ id: 'L9', running: false, startedAt: '2026-10-14T14:00:00Z', tasks: [
+      { repoRoot: '/s', repo: 'Server', id: 'TASK-008', state: 'done', stop: 'human_needed', endedAt: '2026-10-14T14:55:00Z', message: 'Builder stopped', now: 'planned' },
+      { repoRoot: '/s', repo: 'Server', id: 'TASK-001', state: 'done', stop: 'passed', endedAt: '2026-10-14T12:00:00Z', message: 'passed review', now: 'passed' },
+    ] }],
+  });
+  assert.match(screen, /Server\s+TASK-008\s+planned\s+—\s+1h05m ago\s+earlier human_needed \(launch L9\); now planned on the board/);
+  assert.match(screen, /Server\s+TASK-001\s+passed\s+.*passed review/);
+});
