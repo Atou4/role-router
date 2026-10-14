@@ -300,11 +300,15 @@ const scenarios = {
     const id = /Launch (L\S+)/.exec(r.out)?.[1];
     const file = path.join(STATE, 'launches', `${id}.json`);
     let sawLive = false;
+    let collapsed = false;
     let record;
     for (let i = 0; i < 300; i++) {
       sleep(5000);
       const screen = rr(['watch', '--once']).out;
-      if (/TASK-00[56]\s+(builder|review|docs)\s+\S+-(lite|top)\s+\d/.test(screen)) sawLive = true;
+      if (/TASK-00[56]\s+(builder|review|docs)\s+\S+-(lite|top)\s+\d/.test(screen)) {
+        sawLive = true;
+        if (/^NEXT .*role-router do 1/m.test(screen) && !/NEXT  \(ranked/.test(screen)) collapsed = true;
+      }
       record = JSON.parse(readFileSync(file, 'utf8'));
       if (record.tasks.every((t) => ['done', 'stopped'].includes(t.state))) break;
     }
@@ -314,10 +318,12 @@ const scenarios = {
       const v = recs(t).filter((x) => x.operation === 'review' && x.result.kind === 'ok').at(-1);
       return b && v && b.account !== v.account;
     });
+    const after = rr(['watch', '--once']).out;
     return [
       ['launch --detach returns immediately with a launch id', r.code === 0 && Boolean(id) && returnedIn < 15, `${returnedIn.toFixed(1)}s, ${id}`],
       ['watch showed live agents while they worked', sawLive],
       ['both tasks finished the full loop (passed)', record?.tasks.every((t) => t.stop === 'passed'), record?.tasks.map((t) => `${t.id}:${t.stop ?? t.state}`).join(', ')],
+      ['NEXT was one line while agents ran, then offered the PRs', collapsed && /role-router pr \S*TASK-00[56]/.test(after), after.split('NEXT')[1]?.slice(0, 300)],
       ['each ran in its own worktree, reviewed on another vendor', ['TASK-005', 'TASK-006'].every((t) => existsSync(path.join(REPO, '.role-router', 'worktrees', t, '.git'))) && crossVendor],
     ];
   },

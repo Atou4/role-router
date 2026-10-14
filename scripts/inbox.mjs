@@ -17,6 +17,7 @@ import { dispatch } from '../lib/dispatch.mjs';
 import { backfill, decisionPrompt, escalationPath, listEscalations, recordDecision } from '../lib/escalations.mjs';
 import { gitRoot, knownRepos, registerRepo, resolveRepo } from '../lib/repos.mjs';
 import { appendDecision, projectsFor, scopeRepos } from '../lib/scope.mjs';
+import { renderNext, suggestions } from '../lib/nextsteps.mjs';
 import { existsSync, readFileSync } from 'node:fs';
 import { countRuns, repoRootFor } from '../lib/runs.mjs';
 
@@ -56,7 +57,11 @@ try {
   if (here) scope.push(repoRootFor(here));
   backfill(scope);
   const list = listEscalations(scope);
-  if (cmd !== 'resolve') { show(list); process.exit(0); }
+  if (cmd !== 'resolve') {
+    show(list);
+    try { console.log(`\n${renderNext(suggestions(scopeRepos()))}`); } catch { /* best effort */ }
+    process.exit(0);
+  }
 
   const e = target(rest.find((a) => !a.startsWith('--') && rest[rest.indexOf(a) - 1] !== '--option' && rest[rest.indexOf(a) - 1] !== '--note'), list);
   const option = opt('option') !== undefined ? Number(opt('option')) : undefined;

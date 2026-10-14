@@ -9,6 +9,7 @@ import { isBuildable, loadBoard } from '../lib/board.mjs';
 import { loadConfig } from '../lib/config.mjs';
 import { gitRoot, registerRepo } from '../lib/repos.mjs';
 import { activeProject, scopeRepos } from '../lib/scope.mjs';
+import { renderNext, suggestions } from '../lib/nextsteps.mjs';
 import { repoRootFor, listRuns } from '../lib/runs.mjs';
 
 const dim = (s) => `\x1b[2m${s}\x1b[0m`;
@@ -38,8 +39,9 @@ if (all) {
     const count = (st) => b.list.filter((t) => t.status === st).length;
     const ready = b.list.filter((t) => isBuildable(t, b)).map((t) => t.id);
     const parts = ['planned', 'building', 'review', 'passed', 'gaps_found', 'human_needed', 'done'].map((st) => (count(st) ? `${count(st)} ${st}` : null)).filter(Boolean);
-    console.log(`  ${r.name.padEnd(22)} ${parts.join(' · ')}${ready.length ? `  →  buildable: ${ready.join(', ')}` : ''}\n  ${' '.repeat(22)} ${dim(`role-router -C ${r.root} next`)}`);
+    console.log(`  ${r.name.padEnd(22)} ${parts.join(' · ')}${ready.length ? `  →  buildable: ${ready.join(', ')}` : ''}`);
   }
+  try { console.log(`\n${renderNext(suggestions(repos))}`); } catch { /* best effort */ }
   process.exit(0);
 }
 

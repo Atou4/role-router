@@ -177,6 +177,28 @@ While a launch, `fanout`, `next`, `fix` or `quick` runs, role-router keeps the M
 
 `watch` shows every running agent in every repo, including runs started by `next` or `fanout`, with the last thing it did ("ran npm test", "Edit src/orders.ts"), plus queued and finished launch tasks. `watch --once` prints a single snapshot. `stop` ends an agent within about a second; nothing is retried on another account after a stop, and the handoff is kept so `role-router next <task>` or a new launch resumes the work.
 
+### What to do next: the NEXT panel and `do`
+
+`watch`, `inbox` and `status --all` (or `-P <project> status`) end with a **NEXT** panel: the steps that move the board, worked out from the files (no model), ranked by how many tasks each one unblocks down the dependency chain, across repos.
+
+```
+NEXT  (ranked by what each step unblocks)
+  1  Open the PR for IncaCook-Server:TASK-002   unblocks 11
+       role-router pr IncaCook-Server:TASK-002
+  2  Decide incacook-admin:TASK-030 [environment]: …   unblocks 2
+       role-router resolve incacook-admin:TASK-030 --option 1
+ ·   blocked: IncaCook-Server:TASK-003 waits on TASK-002 (passed); …
+```
+
+The steps are: open the PR of a `passed` task, review and merge an open PR (with its CI state; merging stays yours), `sync` after a merge, decide an inbox item (the recommended option when there is one), and launch what can run. Rework (`gaps_found`) only counts as runnable once its dependencies are `done`, here and in `launch --ready`. While agents run, the panel is a single line. When the last launch finishes, a notification names the next step.
+
+```bash
+role-router do 1            # run step 1 (shows the command, asks first; --yes skips)
+role-router do 2 --agent    # hand step 2 to the project session
+```
+
+With `--agent`, routine steps (pr, sync, launch) are handed over with `project ask --act`; decisions and merges go read-only: the agent recommends and gives the command, you run it.
+
 ### After you merge: sync
 
 `role-router sync` marks a task `done` when its `task/<ID>` PR is merged on GitHub (through `gh`), or, without `gh`, when a `passed` task's branch is merged into the default branch. Its worktree is removed and dependent tasks become buildable. `launch --ready` and `next` (when it picks the task) sync first, so a dependency chain keeps moving as you merge; `sync --all` covers every known repo.
@@ -223,10 +245,11 @@ Your description becomes the spec of a **quick task** (`FIX-001`, `QUICK-001`, k
 | `role-router next [TASK] [--loop]` | One build → review → docs iteration, status read from the board after each step |
 | `role-router fanout <TASK…> [--concurrency=N] [--base=REF]` | Independent tasks in parallel, one worktree each (build only) |
 | `role-router launch <[Repo:]TASK…> \| --ready [--detach]` | Many tasks across repos through the full loop at once, optionally in the background |
-| `role-router watch [--once]` | Live view of every running agent, queued and finished launch tasks, account pauses |
+| `role-router watch [--once]` | Live view of every running agent, queued and finished launch tasks, account pauses, and what to do next |
 | `role-router stop <[Repo:]TASK…> \| --all` | Stop running or queued tasks; handoffs kept for resume |
 | `role-router sync [--all]` | Merged `task/<ID>` PRs (or merged `passed` branches) → `done`; worktrees cleaned up |
 | `role-router inbox` | Everything waiting on a human decision, across repos |
+| `role-router do <n> [--agent] [--yes]` | Run step n of the NEXT panel, or hand it to the project session |
 | `role-router resolve <Repo:TASK \| #n> --option N \| --note "…"` | Answer it; the decision is applied and the task relaunched |
 | `role-router fan "<prompt>" [--profiles=a,b] [--worktree]` | One prompt on several models, one answer file each |
 | `role-router pstack [--print]` | Point pstack skills' model panels at your profiles |
