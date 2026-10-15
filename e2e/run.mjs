@@ -22,6 +22,7 @@
 //   guard   `role-router quick "<a redesign>"`: the Builder refuses to design on the fly (human_needed)
 //   sync    merge the loop's task like a human would; sync marks it done
 //   launch  `launch --detach` two tasks: returns at once, watch shows live agents, both finish the full loop
+//   prreview  `pr-review TASK-005 --panel` (no GitHub: the branch against its base): real models, one marked comment
 //   stop    a launched task is stopped mid-build: agent gone, handoff kept, no fallback
 //   project project over the sandbox: session keeps its conversation, read-only guard holds, decide works
 
@@ -328,6 +329,20 @@ const scenarios = {
     ];
   },
 
+  prreview() {
+    // Uses the launch scenario's TASK-005 (passed, its own branch). --no-rework keeps the board as it is.
+    const r = rr(['pr-review', 'TASK-005', '--panel', '--no-rework'], { timeoutMin: 25 });
+    const dir = path.join(REPO, '.role-router', 'runs', 'TASK-005');
+    const latest = readdirSync(dir).filter((f) => f.startsWith('pr-review-')).sort().at(-1);
+    const comment = latest ? readFileSync(path.join(dir, latest, 'comment.md'), 'utf8') : '';
+    return [
+      ['pr-review finished with a verdict', r.code === 0 && /^verdict: (approve|comment|request_changes)$/m.test(r.out), r.out.trim().split('\n').slice(-3).join(' | ')],
+      ['the diff it reviewed is the task branch against its base', Boolean(latest) && /^\+/m.test(readFileSync(path.join(dir, latest, 'diff.patch'), 'utf8'))],
+      ['several models answered, in one marked comment', comment.startsWith('<!-- role-router:pr-review -->') && (comment.match(/<summary>/g) ?? []).length >= 2, comment.split('\n')[1]],
+      ['nothing was posted and the task stayed passed', !/posted:/.test(r.out) && status('TASK-005') === 'passed'],
+    ];
+  },
+
   stop() {
     git('checkout', '-q', 'main');
     const id = /(QUICK-\d+) created/.exec(rr(['quick', '--no-run', 'add cbrt(a), the cube root, in a new src/cbrt.js with a test']).out)?.[1];
@@ -366,7 +381,9 @@ const scenarios = {
       ['project created over the sandbox repo', created.code === 0 && /sbx/.test(created.out)],
       ['the session answers from the live brief', first.code === 0 && /\d/.test(first.out), first.out.trim().slice(0, 80)],
       ['the conversation continues across calls', /KIWI/i.test(second.out), second.out.trim().slice(0, 40)],
-      ['a read-only session cannot start work (role-router refuses it)', /refused in a read-only session/.test(guarded.out) && records('TASK-404').length === before && !listActive(REPO).length, guarded.out.trim().slice(0, 90)],
+      // The model may decline on its own (seen live) or try and hit the guard: either way, no work starts.
+      ['a read-only session starts no work', records('TASK-404').length === before && !listActive(REPO).length, guarded.out.trim().slice(0, 90)],
+      ['the launcher refuses it in a read-only session', /refused in a read-only session/.test(rr(['next'], { extraEnv: { ROLE_ROUTER_READONLY: '1' } }).out)],
       ['decide records the decision on its own line', decided.code === 0 && /DECISION: Prefer named exports\n  - reason \(context only/.test(log)],
     ];
   },

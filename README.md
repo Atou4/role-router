@@ -116,7 +116,7 @@ role-router next                 # or: role-router next --loop
 # …or independent tasks in parallel, each in its own worktree
 role-router fanout TASK-002 TASK-003
 
-# 3. Merge the PR yourself; that is the human gate
+# 3. A passed task opens its PR by itself (GitHub); merging it is the human gate
 role-router status               # accounts, board, last runs, pending handoffs
 ```
 
@@ -199,6 +199,19 @@ role-router do 2 --agent    # hand step 2 to the project session
 
 With `--agent`, routine steps (pr, sync, launch) are handed over with `project ask --act`; decisions and merges go read-only: the agent recommends and gives the command, you run it.
 
+### PRs: opened for you, feedback goes back to the Builder
+
+**Opening.** When a task passes review and its docs step is done, role-router pushes the task branch and opens the PR into the branch it was cut from, with the docs step's PR body (repos on GitHub with `gh` signed in; `"pr": { "auto": false }` turns it off, `"draft": true` opens drafts). If the PR is already open, the new commits are pushed and its description refreshed. `role-router pr <task>` still does it by hand.
+
+**Feedback → rework.** `sync` (and so `launch`, `launch --ready` and `next`) reads every open task PR. Each of these sends the task back to `gaps_found`:
+- CI failing on the PR's latest commit,
+- a review that requests changes,
+- a comment starting with `/rework` from anyone, you included (GitHub does not let you request changes on your own PR).
+
+The failing-check logs, reviews, inline comments and comments are written to `.role-router/runs/<ID>/pr-feedback.md`. The next Builder pass gets that file as binding and fixes it on the same branch, the Reviewer checks each item, and when the task passes again the open PR updates. Feedback is never acted on twice: CI by the commit it failed on, reviews and comments by time. After `pr.fixRounds` rounds (default 2) the task goes to your inbox instead. The NEXT panel shows these as "Rework X from PR #n feedback".
+
+**Review on demand.** `role-router pr-review <[Repo:]TASK | #PR | PR-url>` reviews the PR as it is now: its real diff, after `main` moved on, after hand edits, or a PR nobody planned. It runs on a top-tier profile of an account that neither built nor reviewed the task. `--panel` uses one top-tier profile per account, with the strongest verdict winning. The result is posted as one comment, never an approval (`--no-post` keeps it local). When the review asks for changes on a passed role-router task, the findings go back to the Builder as above (`--no-rework` to just comment). Without GitHub it reviews the task branch against its base and posts nothing.
+
 ### After you merge: sync
 
 `role-router sync` marks a task `done` when its `task/<ID>` PR is merged on GitHub (through `gh`), or, without `gh`, when a `passed` task's branch is merged into the default branch. Its worktree is removed and dependent tasks become buildable. `launch --ready` and `next` (when it picks the task) sync first, so a dependency chain keeps moving as you merge; `sync --all` covers every known repo.
@@ -250,6 +263,8 @@ Your description becomes the spec of a **quick task** (`FIX-001`, `QUICK-001`, k
 | `role-router sync [--all]` | Merged `task/<ID>` PRs (or merged `passed` branches) → `done`; worktrees cleaned up |
 | `role-router inbox` | Everything waiting on a human decision, across repos |
 | `role-router do <n> [--agent] [--yes]` | Run step n of the NEXT panel, or hand it to the project session |
+| `role-router pr <[Repo:]TASK…> [--draft] [--dry-run]` | Open a passed task's PR by hand (it opens by itself on GitHub) |
+| `role-router pr-review <[Repo:]TASK \| #PR \| url> [--panel] [--no-post] [--no-rework]` | Fresh review of the real PR diff on another account; one comment, rework on blockers |
 | `role-router resolve <Repo:TASK \| #n> --option N \| --note "…"` | Answer it; the decision is applied and the task relaunched |
 | `role-router fan "<prompt>" [--profiles=a,b] [--worktree]` | One prompt on several models, one answer file each |
 | `role-router pstack [--print]` | Point pstack skills' model panels at your profiles |
@@ -362,7 +377,8 @@ Installs target Claude Code, Codex and OpenCode together (`~/.agents/skills`, sy
     "escalation": { "chain": ["openai-top", "anthropic-top"], "onTierDrop": "ask" }
   },
   "defaults": { "cooldownMinutes": 60, "transientRetries": 2, "runTimeoutMinutes": 30 },
-  "escalation": { "maxReviewRounds": 2, "autoEscalate": true, "waitForLimits": true, "notify": true }
+  "escalation": { "maxReviewRounds": 2, "autoEscalate": true, "waitForLimits": true, "notify": true },
+  "pr": { "auto": true, "draft": false, "fixRounds": 2 }
 }
 ```
 
