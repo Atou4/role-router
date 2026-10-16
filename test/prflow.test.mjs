@@ -12,7 +12,7 @@ import { listEscalations } from '../lib/escalations.mjs';
 import { runNext } from '../lib/next.mjs';
 import { suggestions } from '../lib/nextsteps.mjs';
 import { openPr } from '../lib/pr.mjs';
-import { autoOpen, feedbackPath, feedbackPrompt, intakeFeedback, readPrState, reviewPr, reviewVerdict, reworkReason } from '../lib/prflow.mjs';
+import { autoOpen, pullRequests, feedbackPath, feedbackPrompt, intakeFeedback, readPrState, reviewPr, reviewVerdict, reworkReason } from '../lib/prflow.mjs';
 import { syncRepo } from '../lib/sync.mjs';
 
 const git = (cwd, ...a) => execFileSync('git', ['-c', 'user.email=t@t', '-c', 'user.name=t', ...a], { cwd, stdio: 'pipe' });
@@ -128,10 +128,24 @@ test('an existing PR gets the new commits and a refreshed description', () => {
   const calls = [];
   const r = openPr(root, { id: 'TASK-002', title: 'orders' }, { sh: (cmd, args) => {
     calls.push([cmd, ...args].join(' '));
-    return cmd === 'gh' && args[1] === 'create' ? { status: 1, stderr: 'a pull request for branch "task/TASK-002" already exists:\nhttps://github.com/o/app/pull/7' } : { status: 0, stdout: '' };
+    return { status: 0, stdout: cmd === 'gh' && args[1] === 'list' ? JSON.stringify([{ headRefName: 'task/TASK-002-extra', url: 'wrong' }, { headRefName: 'task/TASK-002', url: 'https://github.com/o/app/pull/7' }]) : '' };
   } });
   assert.equal(r.url, 'https://github.com/o/app/pull/7');
-  assert.ok(calls.some((c) => c.startsWith('gh pr edit task/TASK-002 --body-file')));
+  assert.ok(calls.some((c) => c.startsWith('gh pr edit https://github.com/o/app/pull/7 --body-file')));
+  assert.equal(calls.some((c) => c.startsWith('gh pr create')), false);
+});
+
+test('PR listing finds an open task PR without gh search and fails closed on query error', () => {
+  const root = repo(PASSED);
+  const run = fakeGh({ 'gh pr list': [{ headRefName: 'feature/x', state: 'OPEN' }, ...openPrList()] });
+  const prs = pullRequests(root, { run, ttlMs: 0 });
+  assert.equal(prs.get('TASK-002').number, 7);
+  assert.equal(prs.size, 1);
+  assert.ok(run.calls.some((c) => c.includes('gh pr list --state all --limit 1000')));
+  assert.equal(run.calls.some((c) => c.includes('--search')), false);
+  const failed = pullRequests(root, { run: fakeGh({}), ttlMs: 0 });
+  assert.equal(failed, null);
+  assert.equal(suggestions([{ root, name: 'App' }], { prs: () => null }).steps.some((step) => step.kind === 'pr'), false);
 });
 
 test('pr-review: the most severe verdict wins, the comment is marked, blockers send the task back', async () => {

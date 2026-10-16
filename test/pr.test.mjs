@@ -31,12 +31,12 @@ test('the PR goes into the branch the task was cut from (recorded), with the doc
   writeFileSync(path.join(wt, 'CHANGELOG.md'), '# log\n- adapter\n'); // the docs step's uncommitted edit
   docsRecord(root, 'TASK-101', 'TASK-101 is passed.\n\n## PR body\n\n## Summary\nAdds the adapter.');
   const calls = [];
-  const r = openPr(root, { id: 'TASK-101', title: 'Add adapter' }, { sh: (cmd, args) => { calls.push([cmd, ...args].join(' ')); return { status: 0, stdout: cmd === 'gh' ? 'https://github.com/o/r/pull/7\n' : '' }; } });
+  const r = openPr(root, { id: 'TASK-101', title: 'Add adapter' }, { sh: (cmd, args) => { calls.push([cmd, ...args].join(' ')); return { status: 0, stdout: cmd === 'gh' ? (args[1] === 'list' ? '[]' : 'https://github.com/o/r/pull/7\n') : '' }; } });
   assert.equal(r.base, 'dev');
   assert.equal(r.branch, 'task/TASK-101');
   assert.deepEqual(r.leftovers, ['CHANGELOG.md']);
   assert.equal(r.url, 'https://github.com/o/r/pull/7');
-  assert.deepEqual(calls.map((c) => c.split(' ').slice(0, 3).join(' ')), ['git commit -am', 'git push -u', 'gh pr create']);
+  assert.deepEqual(calls.map((c) => c.split(' ').slice(0, 3).join(' ')), ['gh pr list', 'git commit -am', 'git push -u', 'gh pr create']);
   assert.equal(readFileSync(r.bodyFile, 'utf8').trim(), '## Summary\nAdds the adapter.');
 });
 
@@ -60,4 +60,19 @@ test('branches task/<ID> and task/<ID>-something map to the task', () => {
   assert.equal(taskOfBranch('task/TASK-101-build'), 'TASK-101');
   assert.equal(taskOfBranch('task/FIX-002'), 'FIX-002');
   assert.equal(taskOfBranch('feature/x'), null);
+});
+
+test('dry run with an exact open PR plans an update, without creating another PR', () => {
+  const root = repo();
+  g(root, 'branch', 'task/TASK-101');
+  docsRecord(root, 'TASK-101', '## PR body\nUpdated.');
+  const calls = [];
+  const r = openPr(root, { id: 'TASK-101', title: 'Add adapter' }, { run: false, sh: (cmd, args) => {
+    calls.push([cmd, ...args]);
+    return { status: 0, stdout: JSON.stringify([{ headRefName: 'task/TASK-101-extra', url: 'wrong' }, { headRefName: 'task/TASK-101', url: 'https://github.com/o/r/pull/7' }]) };
+  } });
+  assert.equal(r.url, 'https://github.com/o/r/pull/7');
+  assert.equal(r.steps.some((step) => step.includes('create')), false);
+  assert.ok(r.steps.some((step) => step.includes('edit')));
+  assert.equal(calls.length, 1);
 });
