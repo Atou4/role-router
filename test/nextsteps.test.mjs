@@ -2,7 +2,7 @@ import './helpers/isolate.mjs';
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { execFileSync, spawnSync } from 'node:child_process';
-import { mkdirSync, mkdtempSync, writeFileSync } from 'node:fs';
+import { chmodSync, mkdirSync, mkdtempSync, writeFileSync } from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import { isRunnable, loadBoard } from '../lib/board.mjs';
@@ -31,7 +31,7 @@ function world() {
 test('steps are ranked by what they unblock, across repos, with the exact command', () => {
   const { admin, repos } = world();
   ensureEscalation(admin, 'TASK-031', { type: 'product', question: 'Which flow?', detail: '1. A\n2. B' });
-  const { steps, blocked } = suggestions(repos, { prs: () => null });
+  const { steps, blocked } = suggestions(repos, { prs: () => new Map() });
   // TASK-002 unblocks TASK-003, TASK-004 and (cross-repo) Admin:TASK-030.
   assert.equal(steps[0].kind, 'pr');
   assert.equal(steps[0].unblocks, 3);
@@ -61,9 +61,16 @@ test('the PR state picks the step: open → merge it yourself, merged → sync',
   assert.equal(merged.steps[0].kind, 'sync');
 });
 
+test('an unavailable PR lookup never suggests opening a PR', () => {
+  const { repos } = world();
+  const { steps } = suggestions(repos, { prs: () => null });
+  assert.equal(steps.some((step) => step.kind === 'pr'), false);
+  assert.ok(steps.some((step) => step.kind === 'launch'));
+});
+
 test('the panel collapses to one line while work runs and explains an empty board', () => {
   const { repos } = world();
-  const next = suggestions(repos, { prs: () => null });
+  const next = suggestions(repos, { prs: () => new Map() });
   const one = renderNext(next, { running: true });
   assert.equal(one.split('\n').length, 1);
   assert.match(one, /role-router do 1/);
@@ -75,9 +82,16 @@ test('role-router do refuses an unknown step and a step that is yours alone', ()
   const parent = mkdtempSync(path.join(os.tmpdir(), 'rr-do-'));
   const env = { ...process.env, ROLE_ROUTER_STATE_DIR: mkdtempSync(path.join(os.tmpdir(), 'rr-do-state-')) };
   const root = path.join(parent, 'Solo');
+  const bin = path.join(parent, 'bin');
+  mkdirSync(bin);
+  const gh = path.join(bin, 'gh');
+  writeFileSync(gh, '#!/bin/sh\nprintf "[]\\n"\n');
+  chmodSync(gh, 0o755);
+  env.PATH = `${bin}${path.delimiter}${process.env.PATH}`;
   mkdirSync(root);
   writeFileSync(path.join(root, 'PLAN.md'), task('TASK-001', 'passed'));
   execFileSync('git', ['init', '-q', '-b', 'main'], { cwd: root });
+  execFileSync('git', ['remote', 'add', 'origin', 'git@github.com:example/solo.git'], { cwd: root });
   spawnSync(CLI, ['-C', root, 'status'], { env }); // registers the repo in that state dir
   const r = spawnSync(CLI, ['do', '3', '--yes'], { encoding: 'utf8', env });
   assert.notEqual(r.status, 0);
