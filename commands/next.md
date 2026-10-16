@@ -16,16 +16,16 @@ Driver: `.agent-board/` repos use the repo's board tool; otherwise use `role-rou
 
 ## 1. Reconcile finished work → `done`
 If the repo uses PRs (`gh` available):
-- List recently merged loop PRs: `gh pr list --state merged --search "head:task/" --limit 10 --json number,headRefName`.
+- List recently merged loop PRs: `gh pr list --state merged --limit 10 --json number,headRefName`.
 - For each merged `task/TASK-XXX` not yet `done`, set it `done` (`board.mjs set-status TASK-XXX done`, or the board tool). This is what unblocks dependents in the graph.
 
 ## 2. Guard: is the previous task settled?
 If `gh` is available:
-- List open loop PRs: `gh pr list --state open --search "head:task/" --json number,headRefName,title,statusCheckRollup,reviewDecision`.
+- List open loop PRs: `gh pr list --state open --json number,headRefName,title,statusCheckRollup,reviewDecision`.
 - If an open `task/TASK-XXX` PR exists, **stop** and report its CI + review status. Tell the user to merge/approve (or fix red CI) first. Do not build.
 - If one is green + approved but unmerged, offer `gh pr merge --squash` — but wait for the user's go-ahead.
 
-**Fail closed:** the `--search "head:task/"` query is flaky and has returned empty on a network blip. Never treat an errored/uncertain query as "no open PRs." If it fails or you're not certain it succeeded, re-check the latest task PR directly (`gh pr view <n> --json state`) and **halt unless you can positively confirm no open task PR.**
+**Fail closed:** a `gh pr list` call can fail or come back empty on a network blip; keep only `task/` heads yourself. Never treat an errored/uncertain query as "no open PRs." If it fails or you're not certain it succeeded, re-check the latest task PR directly (`gh pr view <n> --json state`) and **halt unless you can positively confirm no open task PR.**
 
 ## 3. Branch on status, then pick the task
 Look at the board (`board.mjs list`, or the board tool):
