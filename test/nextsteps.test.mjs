@@ -100,3 +100,15 @@ test('role-router do refuses an unknown step and a step that is yours alone', ()
   const agent = spawnSync(CLI, ['do', '1', '--agent', '--yes'], { encoding: 'utf8', env });
   assert.match(agent.stderr, /Solo is in no project/);
 });
+
+test('without GitHub, a passed task is merged locally; on GitHub, a failed lookup says so', () => {
+  const { server, repos } = world();
+  const local = suggestions(repos, { prs: () => null }).steps.find((x) => x.title.includes('Server:TASK-002'));
+  assert.equal(local.kind, 'merge');
+  assert.match(local.title, /Merge Server:TASK-002 \(task\/TASK-002\) into main yourself/);
+  assert.match(local.note, /git merge task\/TASK-002   then: role-router sync/);
+  execFileSync('git', ['remote', 'add', 'origin', 'git@github.com:o/server.git'], { cwd: server });
+  const failed = suggestions(repos, { prs: () => null }).steps.find((x) => x.title.includes('Server:TASK-002'));
+  assert.match(failed.title, /GitHub could not be asked/);
+  assert.deepEqual(failed.argv, []);
+});

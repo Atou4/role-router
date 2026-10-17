@@ -236,7 +236,16 @@ role-router inbox
 role-router resolve IncaCook:TASK-101 --option 1        # or --note "…", --repos IncaCook-Server, --no-run
 ```
 
-Agents raise escalations in a fixed format (type, question, options, recommendation, affected tasks) at `.role-router/escalations/<TASK>.md`; when one stops without it, role-router files one from the stop and the agent's own words. `resolve` records your decision, which every later prompt for that task receives, then routes it: a **design** decision is applied by a headless Architect to the affected specs (also in other repos) and the task is relaunched; anything else goes back to the Builder with your decision and is relaunched. `watch` shows how many items are waiting.
+Agents raise escalations in a fixed format (type, question, options, recommendation, affected tasks) at `.role-router/escalations/<TASK>.md`; when one stops without it, role-router files one from the stop and the agent's own words. `resolve` records your decision, which every later prompt for that task receives, then routes it: a **design** decision is applied by a headless Architect to the affected specs (also in other repos) and the task is relaunched; then the task is relaunched **at the stage that stopped**, never an earlier one:
+- a stop at review re-runs the review with your decision, and the reviewer sends it back to the Builder itself if the code has to change;
+- a stop at docs re-runs docs;
+- only build stops go back to the Builder.
+
+A task that is already `review`, `passed` or `gaps_found` keeps its status. `watch` shows how many items are waiting.
+
+**Stopped and interrupted work.** Stopping a run puts the board back to the status the task had before that run, so stopping a needless rerun never costs a result. After every run, role-router records the files it left uncommitted (with a content hash) in `.role-router/runs/<ID>/wip.json`. The next agent on the task is told that this is the task's own work in progress, left by an interrupted, limited or escalated run, and continues it instead of stopping at the clean-tree rule. Only unexplained changes stop it: files no run left, or files edited since.
+
+Each headless agent runs in its own process group. A stop, a timeout or Ctrl+C ends the agent and everything it started, and when an agent exits, whatever it left running (a dev server, a test database) is ended too, so a finished run never hangs on a leftover process.
 
 ### Bugs and small changes: skip the planning
 

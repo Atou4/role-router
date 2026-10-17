@@ -15,6 +15,7 @@ function repo() {
   writeFileSync(path.join(root, 'PLAN.md'), '## TASK-101 — Add adapter\n- status: passed\n- depends:\n');
   writeFileSync(path.join(root, 'CHANGELOG.md'), '# log\n');
   g(root, 'init', '-q', '-b', 'main'); g(root, 'add', '-A'); g(root, 'commit', '-q', '-m', 'init');
+  g(root, 'remote', 'add', 'origin', 'git@github.com:o/r.git');
   g(root, 'checkout', '-q', '-b', 'dev'); writeFileSync(path.join(root, 'dev.txt'), 'x'); g(root, 'add', '-A'); g(root, 'commit', '-q', '-m', 'dev work');
   return root;
 }
@@ -75,4 +76,17 @@ test('dry run with an exact open PR plans an update, without creating another PR
   assert.equal(r.steps.some((step) => step.includes('create')), false);
   assert.ok(r.steps.some((step) => step.includes('edit')));
   assert.equal(calls.length, 1);
+});
+
+test('without a GitHub remote, pr still plans the PR (no gh lookup to fail)', () => {
+  const root = mkdtempSync(path.join(os.tmpdir(), 'rr-pr-local-'));
+  writeFileSync(path.join(root, 'PLAN.md'), '## TASK-101 — Add adapter\n- status: passed\n- depends:\n');
+  g(root, 'init', '-q', '-b', 'main'); g(root, 'add', '-A'); g(root, 'commit', '-q', '-m', 'init');
+  g(root, 'branch', 'task/TASK-101');
+  docsRecord(root, 'TASK-101', '## PR body\nDone.');
+  const calls = [];
+  const r = openPr(root, { id: 'TASK-101', title: 'Add adapter' }, { run: false, sh: (cmd, args) => { calls.push(cmd); return { status: 1, stderr: 'no git remotes found' }; } });
+  assert.equal(r.branch, 'task/TASK-101');
+  assert.deepEqual(calls, []);
+  assert.equal(r.steps.at(-1)[2], 'create');
 });

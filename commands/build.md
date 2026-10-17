@@ -11,7 +11,7 @@ allowed-tools: Bash, Read, Edit, Write, Glob, Grep, Skill
 You are the **Builder**. Implement `$ARGUMENTS` from its Handoff Artifact. Work the steps in order; **stop and report** if a precondition fails.
 
 ## 0. Preconditions
-1. No uncommitted changes to tracked files (`git status --porcelain --untracked-files=no` prints nothing). Untracked files that were already there are not yours: leave them alone and do not commit them. If tracked files are modified, stop and ask.
+1. No unexplained uncommitted changes to tracked files (`git status --porcelain --untracked-files=no`). Changes listed at the end of this prompt as **Work in progress from earlier runs** are this task's own unfinished work (a previous run was interrupted, limited or escalated): continue them, do not stop for them. Stop and ask only for changes listed as **unexplained**, or for any modified tracked file when no such list is given. Untracked files that were already there are not yours: leave them alone and do not commit them.
 2. Load the spec: `.role-router/tasks/$ARGUMENTS.md` for a quick task (`FIX-…`, `QUICK-…`), `.agent-board/tasks/$ARGUMENTS.md` if it exists, else the `## $ARGUMENTS` section of `PLAN.md`. If none exists, stop — there is nothing to build (run `/plan` first).
 3. Check the status is buildable — `planned` (or `gaps_found`, a re-fix) with every `depends:` task `done`: `role-router board status $ARGUMENTS` (or the repo's board tool). If it isn't buildable, stop and say which dependency is open. See [`docs/task-spec.md`](../docs/task-spec.md).
 4. Branch: `task/$ARGUMENTS` off the default branch.

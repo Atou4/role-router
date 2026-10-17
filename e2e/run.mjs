@@ -324,7 +324,7 @@ const scenarios = {
       ['launch --detach returns immediately with a launch id', r.code === 0 && Boolean(id) && returnedIn < 15, `${returnedIn.toFixed(1)}s, ${id}`],
       ['watch showed live agents while they worked', sawLive],
       ['both tasks finished the full loop (passed)', record?.tasks.every((t) => t.stop === 'passed'), record?.tasks.map((t) => `${t.id}:${t.stop ?? t.state}`).join(', ')],
-      ['NEXT was one line while agents ran, then offered the PRs', collapsed && /role-router pr \S*TASK-00[56]/.test(after), after.split('NEXT')[1]?.slice(0, 300)],
+      ['NEXT was one line while agents ran, then offered the merges (no GitHub here)', collapsed && /Merge \S*TASK-00[56] \(task\/TASK-00[56]\) into main yourself/.test(after), after.split('NEXT')[1]?.slice(0, 300)],
       ['each ran in its own worktree, reviewed on another vendor', ['TASK-005', 'TASK-006'].every((t) => existsSync(path.join(REPO, '.role-router', 'worktrees', t, '.git'))) && crossVendor],
     ];
   },
@@ -366,6 +366,8 @@ const scenarios = {
       ['the agent process is gone and its marker removed', Boolean(marker) && !isAlive(marker.pid) && !listActive(REPO).some((a) => a.task === id)],
       ['no fallback to another profile after the stop', runs.length === 1 && runs[0].result.kind === 'stopped', runs.map((x) => `${x.profile}:${x.result.kind}`).join(' → ')],
       ['handoff kept for a later resume', existsSync(path.join(REPO, '.role-router', 'runs', id, 'handoff.md')), stopOut.trim()],
+      ['the board is back where it was before the stopped run', status(id) === 'planned', status(id)],
+      ['what the stopped agent left is recorded as its work in progress', existsSync(path.join(REPO, '.role-router', 'runs', id, 'wip.json'))],
     ];
   },
 

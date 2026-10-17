@@ -121,7 +121,7 @@ test('a passed task opens its PR automatically on GitHub only, and the loop repo
 });
 
 test('an existing PR gets the new commits and a refreshed description', () => {
-  const root = repo(PASSED, { github: false });
+  const root = repo(PASSED);
   git(root, 'branch', 'task/TASK-002');
   mkdirSync(path.join(root, '.role-router', 'runs', 'TASK-002'), { recursive: true });
   writeFileSync(path.join(root, '.role-router', 'runs', 'TASK-002', '0001-docs.json'), JSON.stringify({ operation: 'docs', result: { kind: 'ok', summary: '## PR body\nFixed.' } }));

@@ -18,8 +18,9 @@ import { backfill, decisionPrompt, escalationPath, listEscalations, recordDecisi
 import { gitRoot, knownRepos, registerRepo, resolveRepo } from '../lib/repos.mjs';
 import { appendDecision, projectsFor, scopeRepos } from '../lib/scope.mjs';
 import { renderNext, suggestions } from '../lib/nextsteps.mjs';
+import { resumeStatus } from '../lib/next.mjs';
 import { existsSync, readFileSync } from 'node:fs';
-import { countRuns, repoRootFor } from '../lib/runs.mjs';
+import { repoRootFor } from '../lib/runs.mjs';
 
 const CLI = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..', 'role-router');
 const [cmd, ...rest] = process.argv.slice(2);
@@ -73,6 +74,8 @@ try {
   }
   if (rest.includes('--no-run')) process.exit(0);
 
+  // Decided before the Architect's replan run, which adds a run record of its own.
+  const resumeAt = resumeStatus(e.repoRoot, e.task, loadBoard(e.repoRoot)?.byId.get(e.task)?.status);
   if (e.type === 'design') {
     // Other repos named in `affects` must be writable for the Architect, and are listed with their paths.
     // Repos the decision may touch: named in `affects`, given with --repos, or mentioned in the escalation.
@@ -87,11 +90,12 @@ try {
     console.log('Architect is applying the decision to the affected specs (headless)…');
     const out = await dispatch({ role: 'replan', task: e.task, message, mode: 'headless', cwd: e.repoRoot, addDirs: repos });
     if (out.status !== 'ok') throw new Error(`the Architect could not apply it: ${out.message ?? out.status}`);
-  } else {
-    const built = countRuns(e.repoRoot, e.task, 'builder') > 0;
-    setStatus(e.repoRoot, e.task, built ? 'gaps_found' : 'planned');
   }
-  if (loadBoard(e.repoRoot)?.byId.get(e.task)?.status === 'human_needed') setStatus(e.repoRoot, e.task, 'planned');
+  // Resume at the stage that stopped (the replan may have moved the status: it wins unless it left human_needed).
+  const now = loadBoard(e.repoRoot)?.byId.get(e.task)?.status;
+  const status = e.type === 'design' && now !== 'human_needed' ? now : resumeAt;
+  if (status !== now) setStatus(e.repoRoot, e.task, status);
+  console.log(`${e.task} resumes at ${status === 'planned' || status === 'gaps_found' ? 'the build' : status === 'passed' ? 'docs' : status}.`);
   const child = spawn(CLI, ['launch', `${e.repo}:${e.task}`, '--yes', '--detach'], { cwd: e.repoRoot, stdio: 'inherit' });
   child.on('close', (code) => process.exit(code ?? 0));
 } catch (error) {
