@@ -205,10 +205,11 @@ With `--agent`, routine steps (pr, sync, launch) are handed over with `project a
 
 **Feedback → rework.** `sync` (and so `launch`, `launch --ready` and `next`) reads every open task PR. Each of these sends the task back to `gaps_found`:
 - CI failing on the PR's latest commit,
+- a conflict with its base (another PR merged first),
 - a review that requests changes,
 - a comment starting with `/rework` from anyone, you included (GitHub does not let you request changes on your own PR).
 
-The failing-check logs, reviews, inline comments and comments are written to `.role-router/runs/<ID>/pr-feedback.md`. The next Builder pass gets that file as binding and fixes it on the same branch, the Reviewer checks each item, and when the task passes again the open PR updates. Feedback is never acted on twice: CI by the commit it failed on, reviews and comments by time. After `pr.fixRounds` rounds (default 2) the task goes to your inbox instead. The NEXT panel shows these as "Rework X from PR #n feedback".
+The failing-check logs, reviews, inline comments and comments are written to `.role-router/runs/<ID>/pr-feedback.md`. The next Builder pass gets that file as binding and fixes it on the same branch, the Reviewer checks each item, and when the task passes again the open PR updates. Feedback is never acted on twice: CI and conflicts by the commit they were seen on, reviews and comments by time. After `pr.fixRounds` rounds (default 2) the task goes to your inbox instead. The NEXT panel shows these as "Rework X from PR #n feedback".
 
 **Review on demand.** `role-router pr-review <[Repo:]TASK | #PR | PR-url>` reviews the PR as it is now: its real diff, after `main` moved on, after hand edits, or a PR nobody planned. It runs on a top-tier profile of an account that neither built nor reviewed the task. `--panel` uses one top-tier profile per account, with the strongest verdict winning. The result is posted as one comment, never an approval (`--no-post` keeps it local). When the review asks for changes on a passed role-router task, the findings go back to the Builder as above (`--no-rework` to just comment). Without GitHub it reviews the task branch against its base and posts nothing.
 
@@ -222,9 +223,14 @@ Routine stops are handled without you (all configurable under `escalation` in th
 
 | Stop | What role-router does |
 |---|---|
-| Review finds gaps | back to the Builder with the findings, up to `maxReviewRounds` (default 2) |
+| Review finds gaps | back to the Builder with the findings (see below) |
+| The base moved on (another task merged) | merged into the task branch before each build pass and each review; conflicts go to the Builder first |
 | Build stuck after two diagnosed attempts | one automatic run of the Escalation role on a top-tier model (`autoEscalate`) |
 | Every account limited (in a launch) | waits for the earliest reset and resumes from the handoff (`waitForLimits`) |
+
+**Review rounds.** The reviewer numbers each Must-fix (`[MF1]`, …). The next Builder pass gets the findings and answers each one in `.role-router/runs/<ID>/review-response-<run>.md`: fixed in a commit, or disputed with the line or test that shows it is not a defect. The next reviewer gets both, closes what is settled and keeps what is not (`[MF1 kept]`). Only rounds that keep a finding count against `maxReviewRounds` (default 2); a round with new findings only gets a repair pass, up to `maxReviewRoundsTotal` rounds in all (default 4). A finding the Builder disputed and the reviewer kept goes straight to the inbox with both sides. A check the reviewer could not rerun because its own environment failed (a test database it could not start) is not a finding: it is noted as `Unverified by reviewer:` and listed in the PR body.
+
+**Keeping up with the base.** Tasks run in parallel, so their branches fall behind as others merge. Before every Builder pass and every review, role-router merges the base (`origin/<base>` when there is a remote) into the task branch, so the reviewer sees the code the PR will actually merge. A clean merge is committed and reviewed like any change; a conflicting one is cancelled and handed to the Builder, who merges it and resolves the conflicts first (two tries, then the inbox). An open PR that GitHub reports as conflicting (another PR merged first) goes back for rework at `sync`, the same way.
 
 Everything else lands in **one inbox across all repos**, with a desktop notification (`notify`):
 
@@ -386,7 +392,7 @@ Installs target Claude Code, Codex and OpenCode together (`~/.agents/skills`, sy
     "escalation": { "chain": ["openai-top", "anthropic-top"], "onTierDrop": "ask" }
   },
   "defaults": { "cooldownMinutes": 60, "transientRetries": 2, "runTimeoutMinutes": 30 },
-  "escalation": { "maxReviewRounds": 2, "autoEscalate": true, "waitForLimits": true, "notify": true },
+  "escalation": { "maxReviewRounds": 2, "maxReviewRoundsTotal": 4, "autoEscalate": true, "waitForLimits": true, "notify": true },
   "pr": { "auto": true, "draft": false, "fixRounds": 2 }
 }
 ```

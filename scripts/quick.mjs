@@ -24,7 +24,7 @@ const [kind, ...rest] = process.argv.slice(2);
 const noRun = rest.includes('--no-run');
 const request = rest.filter((a) => a !== '--no-run').join(' ');
 
-const EXIT = { passed: 0, drained: 0, human_needed: 2, gaps_found: 2, needs_choice: 2, aborted: 3, waiting: 75, crashed: 1, stuck: 1 };
+const EXIT = { passed: 0, drained: 0, human_needed: 2, gaps_found: 2, needs_choice: 2, disputed: 2, conflicts: 2, aborted: 3, waiting: 75, crashed: 1, stuck: 1 };
 try {
   const root = requireRepo(process.cwd(), kind);
   const task = createQuickTask(root, kind, request);

@@ -19,7 +19,7 @@ const args = process.argv.slice(2);
 const task = args.find((a) => !a.startsWith('--'));
 const loop = args.includes('--loop');
 
-const EXIT = { passed: 0, drained: 0, human_needed: 2, gaps_found: 2, needs_choice: 2, aborted: 3, waiting: 75, crashed: 1, stuck: 1 };
+const EXIT = { passed: 0, drained: 0, human_needed: 2, gaps_found: 2, needs_choice: 2, disputed: 2, conflicts: 2, aborted: 3, waiting: 75, crashed: 1, stuck: 1 };
 let result;
 try {
   const root = requireRepo(process.cwd(), 'next');

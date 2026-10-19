@@ -100,7 +100,9 @@ ${task('TASK-002', 'Add multiply', 'Add `multiply(a, b)` returning a * b to `src
 ${task('TASK-003', 'Add divide', 'Create `src/divide.js` exporting `divide(a, b)`.', 'src/divide.js')}
 ${task('TASK-004', 'Add square', 'Create `src/square.js` exporting `square(a)` returning a * a.', 'src/square.js')}
 ${task('TASK-005', 'Add cube', 'Create `src/cube.js` exporting `cube(a)` returning a * a * a.', 'src/cube.js')}
-${task('TASK-006', 'Add negate', 'Create `src/negate.js` exporting `negate(a)` returning -a.', 'src/negate.js')}`);
+${task('TASK-006', 'Add negate', 'Create `src/negate.js` exporting `negate(a)` returning -a.', 'src/negate.js')}
+${task('TASK-007', 'Add max', 'Add `max(a, b)` returning the larger of the two to `src/math.js`.', 'src/math.js')}
+${task('TASK-008', 'Add safe divide', 'Create `src/safe-divide.js` exporting `divide(a, b)`.', 'src/safe-divide.js')}`);
   const verify = path.join(REPO, '.claude', 'skills', 'verify-sandbox');
   mkdirSync(verify, { recursive: true });
   writeFileSync(path.join(verify, 'SKILL.md'), `---
@@ -142,6 +144,24 @@ echo '{"type":"result","is_error":true,"session_id":"shim-session","result":"You
 exit 1
 `);
   chmodSync(path.join(SHIM, 'claude'), 0o755);
+}
+
+const commitFiles = (cwd, files, msg) => {
+  execFileSync('git', ['add', '--', ...files], { cwd });
+  execFileSync('git', ['-c', 'user.email=t@t', '-c', 'user.name=t', 'commit', '-q', '-m', msg], { cwd });
+};
+/** A task whose Builder already ran: its worktree with `files` committed, the board at review. */
+function prebuilt(id, files) {
+  const wt = path.join(REPO, '.role-router', 'worktrees', id);
+  git('worktree', 'add', '-q', wt, '-b', `task/${id}`, 'main');
+  writeFileSync(`${wt}.base`, 'main\n');
+  for (const [file, text] of Object.entries(files)) {
+    const abs = path.join(wt, file);
+    writeFileSync(abs, text(existsSync(abs) ? readFileSync(abs, 'utf8') : ''));
+  }
+  commitFiles(wt, Object.keys(files), `${id}: build`);
+  rr(['board', 'set-status', id, 'review']);
+  return wt;
 }
 
 // ── scenarios ──────────────────────────────────────────────────────────────────
@@ -340,6 +360,44 @@ const scenarios = {
       ['the diff it reviewed is the task branch against its base', Boolean(latest) && /^\+/m.test(readFileSync(path.join(dir, latest, 'diff.patch'), 'utf8'))],
       ['several models answered, in one marked comment', comment.startsWith('<!-- role-router:pr-review -->') && (comment.match(/<summary>/g) ?? []).length >= 2, comment.split('\n')[1]],
       ['nothing was posted and the task stayed passed', !/posted:/.test(r.out) && status('TASK-005') === 'passed'],
+    ];
+  },
+
+  integrate() {
+    // TASK-007 was built and waits for review, but main moved on with a conflicting change to the
+    // same file (another task merged first). The loop must hand the merge to the Builder before review.
+    const wt = prebuilt('TASK-007', { 'src/math.js': (t) => `${t}\nexport function max(a, b) {\n  return a > b ? a : b;\n}\n`, 'test/max.test.js': () => "import { test } from 'node:test';\nimport assert from 'node:assert/strict';\nimport { max } from '../src/math.js';\n\ntest('max', () => assert.equal(max(2, 3), 3));\n" });
+    git('checkout', '-q', 'main');
+    writeFileSync(path.join(REPO, 'src', 'math.js'), `${readFileSync(path.join(REPO, 'src', 'math.js'), 'utf8')}\nexport function min(a, b) {\n  return a < b ? a : b;\n}\n`);
+    writeFileSync(path.join(REPO, 'test', 'min.test.js'), "import { test } from 'node:test';\nimport assert from 'node:assert/strict';\nimport { min } from '../src/math.js';\n\ntest('min', () => assert.equal(min(2, 3), 2));\n");
+    commitFiles(REPO, ['src/math.js', 'test/min.test.js'], 'another task merged: min');
+    const r = rr(['next', 'TASK-007'], { timeoutMin: 40 });
+    const math = readFileSync(path.join(wt, 'src', 'math.js'), 'utf8');
+    let testsPass = false;
+    try { execFileSync('npm', ['test', '--silent'], { cwd: wt, stdio: 'ignore' }); testsPass = true; } catch { /* reported below */ }
+    const state = JSON.parse(readFileSync(path.join(REPO, '.role-router', 'runs', 'TASK-007', 'integrate.json'), 'utf8'));
+    return [
+      ['the loop found the conflict before reviewing and sent it to the Builder', /integrate:conflicts\s+builder:ok/.test(r.out), r.out.trim().split('\n')[0]],
+      ['TASK-007 passed afterwards', r.code === 0 && status('TASK-007') === 'passed', r.out.trim().split('\n').slice(-1)[0]],
+      ['the task branch now contains main', (() => { try { git('merge-base', '--is-ancestor', 'main', 'task/TASK-007'); return true; } catch { return false; } })()],
+      ['both sides survived the resolution and npm test passes', /function max/.test(math) && /function min/.test(math) && !/^[<>=]{7}/m.test(math) && testsPass],
+      ['the review ran on the merged branch (up to date with main)', state.status === 'current' && state.target === 'main', JSON.stringify(state)],
+    ];
+  },
+
+  rounds() {
+    // TASK-008 was built without the division-by-zero edge case its spec requires: the review must
+    // number the finding, the Builder must answer it, and the next review must close it.
+    prebuilt('TASK-008', { 'src/safe-divide.js': () => 'export function divide(a, b) {\n  return a / b;\n}\n', 'test/safe-divide.test.js': () => "import { test } from 'node:test';\nimport assert from 'node:assert/strict';\nimport { divide } from '../src/safe-divide.js';\n\ntest('divide', () => assert.equal(divide(6, 3), 2));\n" });
+    const r = rr(['next', 'TASK-008'], { timeoutMin: 40 });
+    const dir = path.join(REPO, '.role-router', 'runs', 'TASK-008');
+    const reviews = records('TASK-008').filter((x) => x.operation === 'review' && x.result.kind === 'ok');
+    const answers = readdirSync(dir).filter((f) => /^review-response-.*\.md$/.test(f));
+    const answer = answers.length ? readFileSync(path.join(dir, answers[0]), 'utf8') : '';
+    return [
+      ['the first review numbered its Must-fix', /\[MF1\]/.test(reviews[0]?.result.summary ?? ''), (reviews[0]?.result.summary ?? '').split('\n').find((l) => /MF1/.test(l))],
+      ['the Builder answered it by number', /\[MF1\]\s*(fixed|disputed)/i.test(answer), answer.trim().split('\n')[0]],
+      ['the next review closed it and the task passed', r.code === 0 && status('TASK-008') === 'passed' && reviews.length >= 2 && !/\[MF1 kept\]/.test(reviews.at(-1).result.summary), `${reviews.length} review(s), ${status('TASK-008')}`],
     ];
   },
 

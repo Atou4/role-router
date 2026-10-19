@@ -11,19 +11,21 @@ allowed-tools: Bash, Read, Glob, Grep, Skill, Agent
 You are the **Worker** doing review. Review the diff, do not change code.
 
 ## 1. Scope the diff
-`git diff` against the base branch (default branch). If `$ARGUMENTS` is given, also read its spec (`.role-router/tasks/$ARGUMENTS.md` for a quick task, `.agent-board/tasks/$ARGUMENTS.md`, or the `PLAN.md` section) to check the diff actually satisfies the Acceptance Criteria.
+`git diff <base>...HEAD`, where the base is the branch the PR merges into (the prompt names it under **The base** when role-router ran the loop; otherwise the default branch). If `$ARGUMENTS` is given, also read its spec (`.role-router/tasks/$ARGUMENTS.md` for a quick task, `.agent-board/tasks/$ARGUMENTS.md`, or the `PLAN.md` section) to check the diff actually satisfies the Acceptance Criteria.
 
 ## 2. Review
 - Use the `code-review` skill and any stack rule skills listed under **Skills for this run**. Run its Standards and Spec axes independently, including the refactoring-smell baseline, then map any hard failure to the normalized status below.
 - **Interface sketch:** if the spec has one, the diff must implement it as written. A public type, signature, or module boundary that differs from the sketch is a Must-fix unless the spec records an approved change.
-- **Evidence, not claims:** when a repo verification skill (`verify-<app>`) is listed under **Skills for this run**, check that the Builder's evidence exists where it says, then drive at least one user-visible Acceptance Criterion yourself with that skill. A criterion whose evidence is missing or does not reproduce is a Must-fix.
+- **Evidence, not claims:** when a repo verification skill (`verify-<app>`) is listed under **Skills for this run**, check that the Builder's evidence exists where it says, then drive at least one user-visible Acceptance Criterion yourself with that skill. A criterion whose evidence is missing, is for an older commit than the code it covers, or does not reproduce when you rerun it is a Must-fix.
+- **Your environment failing is not a code gap:** when the Builder's evidence is there for the code you review but you cannot rerun it because your own environment cannot start what it needs (a test database, a simulator, a sandbox denial), that is not a Must-fix. Write one line `Unverified by reviewer: <criterion> — <what failed in your environment>` and judge the rest; the line goes into the PR for the human merging it.
 - **Quick tasks:** for a `FIX-…`, confirm the new test reproduces the reported bug (it would fail without the fix) and that Notes name a plausible root cause; a fix with no reproducing test is a Must-fix. For a `QUICK-…`, confirm the change stays small: a new or changed public interface or a design decision is `human_needed` with a recommendation to `/plan` it.
+- **An earlier round:** when the prompt has **The previous review round**, check each earlier Must-fix first. Close the ones the Builder fixed or rightly disputed (do not list them again); keep one that is still open as `[MFn kept]` with why the fix or the dispute does not settle it.
 - **Requirement coverage, not just a diff scan:** go through every Acceptance Criterion / REQ-ID in the spec and confirm the diff actually implements it. A criterion ticked-but-unverified is a Must-fix.
 - Also check: convention violations, obvious correctness or security issues.
 - **Risk flag:** if the diff touches money, auth or permissions, data migrations, a status/enum mapping, or anything another repo reads, add a **Risk** line to the report recommending the user run `/blast-radius` on it before merge. This is a recommendation for the human, not a status change.
 
 ## 3. Report
-Output a tight findings list grouped **Must-fix / Should-fix / Nit**, each with `file:line`.
+Output a tight findings list grouped **Must-fix / Should-fix / Nit**, each with `file:line`. Number each new Must-fix `[MF1]`, `[MF2]`, … (after an earlier round, continue from its highest number); the Builder answers them by number.
 
 ## 4. Emit the status — this is the point of the command
 The loop routes on your **status**, not your prose. End by writing exactly one (`role-router board set-status $ARGUMENTS <status>`, or the repo's board tool):
