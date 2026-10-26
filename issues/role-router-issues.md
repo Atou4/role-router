@@ -9,6 +9,11 @@
 
 The subsequent review launch also stopped before a reviewer turn: the base merge found a `PLAN.md` conflict, then the Builder selected for conflict resolution exited with the same empty Codex failure. The Anthropic profile failed preflight because Claude Code was signed out. Retrying the Architect outside the sandbox succeeded, so runner startup behavior varies by role and execution context.
 
+The same failure recurred when resuming IncaCook mobile TASK-103 through Role Router on 2026-10-26: the launch exited after about three seconds with `codex exited 1 without completing a turn`, before the Builder produced any output.
+
+### Additional diagnosis (2026-10-26)
+The same Codex CLI cannot initialize its app-server client inside the default sandbox (`failed to initialize in-process app-server client: Operation not permitted`), but a minimal read-only Codex turn succeeds when the local process is allowed host IPC. Running the Role Router task launch with that permission allowed it to start. This points to a runner sandbox/IPC requirement, not a task-specific prompt failure.
+
 ### Expected
 If the replan Architect fails, Role Router should report that the decision is durable but unapplied, preserve the escalation for retry, and offer a safe retry/fallback. A subsequent resolve retry should not append duplicate decisions.
 
@@ -53,3 +58,29 @@ The PR stage should preflight GitHub connectivity/auth and return a clear blocke
 
 ### Follow-up
 After GitHub connectivity and auth are restored, retry `role-router pr IncaCook-Server:TASK-017`; review the proposed base/head before merge.
+
+## ISSUE-RR-005 — Inbox keeps resolved escalations for completed tasks
+- status: deferred
+- reported: 2026-10-26
+
+### Observed
+After syncing IncaCook mobile, TASK-104 is `done` on the Role Router board and its PR is merged, but `role-router inbox` still presents TASK-104's environment escalation as open and says it blocks TASK-103 and TASK-105. `role-router next` also continues to recommend resolving that stale escalation.
+
+### Expected
+When a task completes or an escalation is otherwise resolved, the inbox and dependency recommendations should stop surfacing it as an actionable blocker. If completion does not resolve an escalation automatically, Role Router should clearly distinguish stale/non-blocking escalations from open decisions.
+
+### Follow-up
+Reconcile escalation state with the task board during sync, and ensure inbox/next only treat unresolved escalations on active tasks as blockers.
+
+## ISSUE-RR-006 — Provider summary reports Anthropic ready while CLI is signed out
+- status: deferred
+- reported: 2026-10-26
+
+### Observed
+`role-router status` lists the Anthropic account as `ok`, but an explicit Builder run on `anthropic-lite` fails preflight with `Claude Code is not signed in`; `claude auth status` confirms `loggedIn: false`. This contradicts the status summary and blocks the configured first Builder profile.
+
+### Expected
+Provider readiness should reflect the underlying CLI authentication check, or clearly distinguish configuration presence from an authenticated, usable account.
+
+### Follow-up
+Refresh and validate provider auth in `role-router status` and before launching a profile; report the exact unavailable profile and continue only through an authenticated fallback.
