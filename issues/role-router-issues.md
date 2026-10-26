@@ -12,3 +12,16 @@ If the replan Architect fails, Role Router should report that the decision is du
 
 ### Follow-up
 Improve headless replan fallback/diagnostics and make resolve idempotent across Architect failures. For now, manually apply the already-recorded decision after checking task files, then relaunch through Role Router.
+
+## ISSUE-RR-002 — Replan can mark an unmerged implementation task done
+- status: deferred
+- reported: 2026-10-26
+
+### Observed
+After a direct headless Architect replan of IncaCook-Server TASK-017, its shared board status became `done`, although `task/TASK-017` was not merged into the base branch and review/integration had not run. `role-router sync` reported nothing newly merged. The task branch's PLAN.md also remained stale relative to the later replan commit on the base branch.
+
+### Expected
+A planning-only replan must not promote an implementation task to `done`. Completion should require the normal review/integration lifecycle, and a task branch should receive the updated base spec before review or merge.
+
+### Follow-up
+Keep the task at `review` while reviewing; fix the Architect/replan status transition and ensure base sync happens before review. Do not let downstream dependencies treat the unmerged branch as completed.
