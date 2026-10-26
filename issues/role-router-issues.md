@@ -84,3 +84,16 @@ Provider readiness/preflight should distinguish genuinely missing credentials fr
 
 ### Follow-up
 Make provider preflight use the same permitted host context as the launched agent, or return an actionable IPC/keychain permission diagnosis instead of claiming the user is signed out.
+
+## ISSUE-RR-007 — Human-needed stop writes a generic escalation without options
+- status: deferred
+- reported: 2026-10-26
+
+### Observed
+When IncaCook TASK-103 stopped as `human_needed`, Role Router wrote an escalation asking only whether the generic stop should be resolved, with empty `options`, `recommendation`, and `affects` fields. The actual missing inputs and completed work were present in the Builder summary, but the escalation could not be resolved with `--option` and did not present the needed actions directly.
+
+### Expected
+The escalation should preserve the Builder's concrete blockers and choices in structured fields, or clearly expose the summary as the decision prompt and provide a supported resolution path.
+
+### Follow-up
+Map structured and free-form `human_needed` stops into actionable escalation records; avoid replacing a detailed Builder result with a generic question.
