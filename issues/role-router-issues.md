@@ -27,3 +27,16 @@ A planning-only replan must not promote an implementation task to `done`. Comple
 
 ### Follow-up
 Keep the task at `review` while reviewing; fix the Architect/replan status transition and ensure base sync happens before review. Do not let downstream dependencies treat the unmerged branch as completed.
+
+## ISSUE-RR-003 — Stale task base makes the review diff include upstream task work
+- status: deferred
+- reported: 2026-10-26
+
+### Observed
+TASK-017 was created from `plan/staging-phone-otp`, while its Builder had already merged newer `origin/main` into the task branch. Before review, Role Router correctly merged the recorded base into the task branch, but review compared against that stale base and treated an existing production scheme line from upstream work as a TASK-017 change. This produced a staging-scope finding for code already present in the newer upstream history.
+
+### Expected
+Before review, Role Router should identify that a task branch contains commits from a newer upstream base and choose/update the recorded PR base, or clearly exclude already-upstream commits from task-specific findings. The reviewed diff should match the intended merge target.
+
+### Follow-up
+Keep the current review finding visible until its ownership is resolved; then fix base selection/integration so stale task plans cannot misattribute prior changes.
