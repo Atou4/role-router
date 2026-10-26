@@ -72,15 +72,15 @@ When a task completes or an escalation is otherwise resolved, the inbox and depe
 ### Follow-up
 Reconcile escalation state with the task board during sync, and ensure inbox/next only treat unresolved escalations on active tasks as blockers.
 
-## ISSUE-RR-006 — Provider summary reports Anthropic ready while CLI is signed out
+## ISSUE-RR-006 — Restricted preflight reports Anthropic signed out despite usable credentials
 - status: deferred
 - reported: 2026-10-26
 
 ### Observed
-`role-router status` lists the Anthropic account as `ok`, but an explicit Builder run on `anthropic-lite` fails preflight with `Claude Code is not signed in`; `claude auth status` confirms `loggedIn: false`. This contradicts the status summary and blocks the configured first Builder profile.
+`role-router status` lists the Anthropic account as `ok`, but an unprivileged Builder run on `anthropic-lite` fails preflight with `Claude Code is not signed in`, and unprivileged `claude auth status` reports `loggedIn: false`. Later, the normal TASK-103 launch with host IPC access successfully ran the Anthropic Builder (`claude-sonnet-5-5`). The account was usable; the restricted preflight context could not see its auth state.
 
 ### Expected
-Provider readiness should reflect the underlying CLI authentication check, or clearly distinguish configuration presence from an authenticated, usable account.
+Provider readiness/preflight should distinguish genuinely missing credentials from credentials inaccessible because the runner lacks host IPC/keychain access, and name the needed execution context.
 
 ### Follow-up
-Refresh and validate provider auth in `role-router status` and before launching a profile; report the exact unavailable profile and continue only through an authenticated fallback.
+Make provider preflight use the same permitted host context as the launched agent, or return an actionable IPC/keychain permission diagnosis instead of claiming the user is signed out.
