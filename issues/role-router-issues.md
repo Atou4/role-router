@@ -40,3 +40,16 @@ Before review, Role Router should identify that a task branch contains commits f
 
 ### Follow-up
 Keep the current review finding visible until its ownership is resolved; then fix base selection/integration so stale task plans cannot misattribute prior changes.
+
+## ISSUE-RR-004 — PR handoff fails without GitHub connectivity and valid auth
+- status: deferred
+- reported: 2026-10-26
+
+### Observed
+After TASK-017 passed review and docs, the automatic PR step failed with `Head sha can't be blank, Base sha can't be blank, No commits between ...`. `role-router pr IncaCook-Server:TASK-017 --dry-run` then failed while listing PRs because it could not connect to `api.github.com`; `gh auth status` also reports the configured GitHub token is invalid. No PR was opened or merge performed.
+
+### Expected
+The PR stage should preflight GitHub connectivity/auth and return a clear blocked status without reporting a misleading head/base or no-commits error.
+
+### Follow-up
+After GitHub connectivity and auth are restored, retry `role-router pr IncaCook-Server:TASK-017`; review the proposed base/head before merge.
