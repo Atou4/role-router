@@ -235,3 +235,43 @@ test('dispatch hands the findings to the Builder and the base and earlier round 
   assert.match(prompts.at(-1), /The previous review round[\s\S]*fixed in abc: rewrote it/);
   assert.match(prompts.at(-1), /git diff main\.\.\.HEAD/);
 });
+
+// ISSUE-RR-003: seen live, TASK-017 was cut from plan/staging-phone-otp and its Builder merged a newer
+// origin/main; the review diffed against the stale plan branch and blamed TASK-017 for main's work.
+function planWorld({ builderMergesMain }) {
+  const root = mkdtempSync(path.join(os.tmpdir(), 'rr-plan-'));
+  const remote = mkdtempSync(path.join(os.tmpdir(), 'rr-plan-remote-'));
+  git(remote, 'init', '-q', '--bare', '-b', 'main');
+  writeFileSync(path.join(root, 'PLAN.md'), '## TASK-017 — a\n- status: review\n- depends:\n');
+  writeFileSync(path.join(root, 'app.config'), 'scheme=dev\n');
+  writeFileSync(path.join(root, '.gitignore'), '.role-router/\n');
+  git(root, 'init', '-q', '-b', 'main'); git(root, 'add', '.'); git(root, 'commit', '-qm', 'init');
+  git(root, 'remote', 'add', 'origin', remote); git(root, 'push', '-q', '-u', 'origin', 'main'); git(root, 'remote', 'set-head', 'origin', 'main');
+  git(root, 'checkout', '-q', '-b', 'plan/x'); commitOn(root, 'PLAN.md', '## TASK-017 — a\n- status: review\n- depends:\nreplanned\n', 'plan update'); git(root, 'push', '-q', 'origin', 'plan/x');
+  const wt = ensureWorktree(root, 'TASK-017', 'plan/x', { setup: false });
+  writeFileSync(path.join(wt, 'otp.js'), 'otp\n'); git(wt, 'add', 'otp.js'); git(wt, 'commit', '-qm', 'TASK-017 work');
+  const other = mkdtempSync(path.join(os.tmpdir(), 'rr-plan-clone-'));
+  git(other, 'clone', '-q', remote, '.');
+  commitOn(other, 'app.config', 'scheme=production\n', 'upstream task: production scheme'); git(other, 'push', '-q', 'origin', 'main');
+  if (builderMergesMain) { git(wt, 'fetch', '-q', 'origin'); git(wt, 'merge', '-q', '--no-edit', 'origin/main'); }
+  return { root, wt };
+}
+
+test('a task that already took in newer main is reviewed and PRed against main, not its stale plan base', () => {
+  const { root, wt } = planWorld({ builderMergesMain: true });
+  const r = integrateBase(wt, 'TASK-017');
+  assert.equal(r.target, 'origin/main');
+  assert.deepEqual(r.retargeted, { from: 'plan/x', to: 'main' });
+  assert.equal(readFileSync(path.join(root, '.role-router', 'worktrees', 'TASK-017.base'), 'utf8').trim(), 'main', 'the PR base follows');
+  const changed = git(wt, 'diff', '--name-only', `${r.target}...HEAD`).split('\n');
+  assert.ok(!changed.includes('app.config'), `main's own change is not this task's: ${changed}`);
+  assert.ok(changed.includes('otp.js'));
+  assert.match(integrationPrompt(wt, 'TASK-017', 'review'), /PR base is now main \(was plan\/x/);
+});
+
+test('a task that did not take in main keeps the plan branch it was cut from', () => {
+  const { wt } = planWorld({ builderMergesMain: false });
+  const r = integrateBase(wt, 'TASK-017');
+  assert.equal(r.target, 'origin/plan/x');
+  assert.equal(r.retargeted, undefined);
+});

@@ -17,7 +17,7 @@ Driver: `.agent-board/` repos use the repo's board tool; otherwise use `role-rou
 ## 1. Reconcile finished work → `done`
 If the repo uses PRs (`gh` available):
 - List recently merged loop PRs: `gh pr list --state merged --limit 10 --json number,headRefName`.
-- For each merged `task/TASK-XXX` not yet `done`, set it `done` (`board.mjs set-status TASK-XXX done`, or the board tool). This is what unblocks dependents in the graph.
+- Run `role-router sync`: it marks each merged `task/TASK-XXX` `done` after checking the merge itself, which is what unblocks dependents in the graph. Do not set `done` by hand (the board refuses it from an agent).
 
 ## 2. Guard: is the previous task settled?
 If `gh` is available:

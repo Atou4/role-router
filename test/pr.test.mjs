@@ -37,7 +37,7 @@ test('the PR goes into the branch the task was cut from (recorded), with the doc
   assert.equal(r.branch, 'task/TASK-101');
   assert.deepEqual(r.leftovers, ['CHANGELOG.md']);
   assert.equal(r.url, 'https://github.com/o/r/pull/7');
-  assert.deepEqual(calls.map((c) => c.split(' ').slice(0, 3).join(' ')), ['gh pr list', 'git commit -am', 'git push -u', 'gh pr create']);
+  assert.deepEqual(calls.map((c) => c.split(' ').slice(0, 3).join(' ')), ['gh auth status', 'gh pr list', 'git commit -am', 'git push -u', 'gh pr create']);
   assert.equal(readFileSync(r.bodyFile, 'utf8').trim(), '## Summary\nAdds the adapter.');
 });
 
@@ -75,7 +75,7 @@ test('dry run with an exact open PR plans an update, without creating another PR
   assert.equal(r.url, 'https://github.com/o/r/pull/7');
   assert.equal(r.steps.some((step) => step.includes('create')), false);
   assert.ok(r.steps.some((step) => step.includes('edit')));
-  assert.equal(calls.length, 1);
+  assert.deepEqual(calls.map((c) => c.slice(0, 3).join(' ')), ['gh auth status', 'gh pr list'], 'checks GitHub, looks up, runs nothing');
 });
 
 test('without a GitHub remote, pr still plans the PR (no gh lookup to fail)', () => {
@@ -89,4 +89,22 @@ test('without a GitHub remote, pr still plans the PR (no gh lookup to fail)', ()
   assert.equal(r.branch, 'task/TASK-101');
   assert.deepEqual(calls, []);
   assert.equal(r.steps.at(-1)[2], 'create');
+});
+
+// ISSUE-RR-004: seen live, with an invalid gh token and no connection the PR step reported GitHub's
+// "Head sha can't be blank, Base sha can't be blank, No commits between ..." instead of the cause.
+test('the PR step checks GitHub first and names the real problem', () => {
+  const root = repo();
+  const wt = ensureWorktree(root, 'TASK-101', 'HEAD', { setup: false });
+  writeFileSync(path.join(wt, 'a.dart'), 'code'); g(wt, 'add', '-A'); g(wt, 'commit', '-q', '-m', 'TASK-101: adapter');
+  docsRecord(root, 'TASK-101', '## PR body\n\nAdds the adapter.');
+  const calls = [];
+  const signedOut = (cmd, args) => { calls.push(`${cmd} ${args[0]}`); return cmd === 'gh' && args[0] === 'auth' ? { status: 1, stderr: 'X Failed to log in to github.com account Atou4 (keyring)\n- The token in keyring is invalid.' } : { status: 0, stdout: '[]' }; };
+  assert.throws(() => openPr(root, { id: 'TASK-101', title: 'Add adapter' }, { sh: signedOut }), /GitHub is not available[\s\S]*token in keyring is invalid[\s\S]*nothing was pushed/);
+  assert.ok(!calls.includes('git push'), calls.join(', '));
+
+  const blank = (cmd, args) => (cmd === 'gh' && args[1] === 'create'
+    ? { status: 1, stderr: 'pull request create failed: GraphQL: Head sha can\'t be blank, Base sha can\'t be blank, No commits between dev and task/TASK-101 (createPullRequest)' }
+    : { status: 0, stdout: cmd === 'gh' && args[1] === 'list' ? '[]' : '' });
+  assert.throws(() => openPr(root, { id: 'TASK-101', title: 'Add adapter' }, { sh: blank }), /GitHub does not see task\/TASK-101 or dev[\s\S]*git ls-remote --heads origin task\/TASK-101 dev/);
 });

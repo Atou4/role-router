@@ -11,5 +11,5 @@ You are the **Architect**. A Builder or Reviewer stopped `$ARGUMENTS` because of
 2. Update only what the decision changes: the Scope, Interface sketch, Acceptance Criteria and Edge Cases of the affected tasks, and the feature-level Interface sketch / Design decision if they are now wrong. Record the decision in the Design decision section ("Decided after escalation of $ARGUMENTS: ..."). Leave every other task untouched.
 3. If the decision creates or removes a dependency (including across repos), update the `depends:` lines accordingly.
 4. Commit each repo you changed with the message `Plan: apply decision for $ARGUMENTS`.
-5. Set every task whose spec you changed back to `planned` with `role-router -C <repo path> board set-status <TASK-ID> planned` (tasks already `done` stay done; say so if the decision invalidates done work).
+5. Set every task whose spec you changed back to `planned` with `role-router -C <repo path> board set-status <TASK-ID> planned` (tasks already `done` stay done; say so if the decision invalidates done work). Never set a task to `done` yourself: done means its PR was merged, and the board refuses it from an agent.
 6. Report: what changed per repo, which tasks are now `planned`, and anything the decision leaves open.

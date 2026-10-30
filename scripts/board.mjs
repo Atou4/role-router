@@ -10,6 +10,7 @@
 //
 // Status contract (docs/task-spec.md): planned -> building -> review ->
 // {passed | gaps_found | human_needed} -> done. "buildable" = planned with every dependency done.
+// `done` is never an agent's to set (ROLE_ROUTER_AGENT is in every agent's environment).
 
 import { STATUSES, isBuildable, loadBoard, planPath, setStatus } from '../lib/board.mjs';
 
@@ -48,6 +49,10 @@ switch (cmd) {
     break;
   }
   case 'set-status': {
+    // Seen live: a headless Architect marked an unmerged task done, and its dependents started on it.
+    if (rest[1] === 'done' && process.env.ROLE_ROUTER_AGENT) {
+      fail(`role-router: an agent cannot mark ${rest[0]} done. A task is done only after its PR is merged (role-router sync records it) or a human accepts it; leave it at its current status and say what is left.`);
+    }
     try { setStatus(ROOT, rest[0], rest[1]); } catch (e) { fail(e.message); }
     console.log(`${rest[0]} -> ${rest[1]}`);
     break;

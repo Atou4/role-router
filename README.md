@@ -215,7 +215,7 @@ The failing-check logs, reviews, inline comments and comments are written to `.r
 
 ### After you merge: sync
 
-`role-router sync` marks a task `done` when its `task/<ID>` PR is merged on GitHub (through `gh`), or, without `gh`, when a `passed` task's branch is merged into the default branch. Its worktree is removed and dependent tasks become buildable. `launch --ready` and `next` (when it picks the task) sync first, so a dependency chain keeps moving as you merge; `sync --all` covers every known repo.
+Only a merge makes a task `done`: agents run with `ROLE_ROUTER_AGENT` set, and `board set-status … done` refuses them (you can still set it by hand). `role-router sync` marks a task `done` when its `task/<ID>` PR is merged on GitHub (through `gh`), or, without `gh`, when a `passed` task's branch is merged into the default branch. Its worktree is removed and dependent tasks become buildable. `launch --ready` and `next` (when it picks the task) sync first, so a dependency chain keeps moving as you merge; `sync --all` covers every known repo.
 
 ### When work stops: escalations
 
@@ -242,12 +242,12 @@ role-router inbox
 role-router resolve IncaCook:TASK-101 --option 1        # or --note "…", --repos IncaCook-Server, --no-run
 ```
 
-Agents raise escalations in a fixed format (type, question, options, recommendation, affected tasks) at `.role-router/escalations/<TASK>.md`; when one stops without it, role-router files one from the stop and the agent's own words. `resolve` records your decision, which every later prompt for that task receives, then routes it: a **design** decision is applied by a headless Architect to the affected specs (also in other repos) and the task is relaunched; then the task is relaunched **at the stage that stopped**, never an earlier one:
+Agents raise escalations in a fixed format (type, question, options, recommendation, affected tasks) at `.role-router/escalations/<TASK>.md`; when one stops without it, role-router files one from the stop and the agent's own words: the blockers it listed (under "Not done", "Blocked on", "Missing"…) become the question, and standard options make it resolvable by number. `resolve` records your decision, which every later prompt for that task receives, then routes it: a **design** decision is applied by a headless Architect to the affected specs (also in other repos) and the task is relaunched; then the task is relaunched **at the stage that stopped**, never an earlier one:
 - a stop at review re-runs the review with your decision, and the reviewer sends it back to the Builder itself if the code has to change;
 - a stop at docs re-runs docs;
 - only build stops go back to the Builder.
 
-A task that is already `review`, `passed` or `gaps_found` keeps its status. `watch` shows how many items are waiting.
+A task that is already `review`, `passed` or `gaps_found` keeps its status. If the Architect cannot apply a design decision (it crashes, or no account is reachable), the decision stays in the inbox as *decided, not applied*, nothing is relaunched, and `role-router resolve <task>` with no option retries it without logging the decision twice. An escalation of a task that is `done` is no longer open: the inbox skips it and `sync` archives it. `watch` shows how many items are waiting.
 
 **Stopped and interrupted work.** Stopping a run puts the board back to the status the task had before that run, so stopping a needless rerun never costs a result. After every run, role-router records the files it left uncommitted (with a content hash) in `.role-router/runs/<ID>/wip.json`. The next agent on the task is told that this is the task's own work in progress, left by an interrupted, limited or escalated run, and continues it instead of stopping at the clean-tree rule. Only unexplained changes stop it: files no run left, or files edited since.
 

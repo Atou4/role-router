@@ -105,3 +105,67 @@ test('resolve --no-run records the decision from the CLI', () => {
   assert.match(r.stdout, /Decision recorded for App:TASK-101: Pass a deliveryId/);
   assert.ok(isResolved(root, 'TASK-101'));
 });
+
+// ISSUE-RR-005: seen live, IncaCook:TASK-104 was done and merged but its escalation stayed in the
+// inbox, listed as blocking TASK-103 and TASK-105.
+test('an escalation of a done task is not open: the inbox skips it and sync archives it', async () => {
+  const root = repo('app', '## TASK-104 — a\n- status: human_needed\n- depends:\n\n## TASK-103 — b\n- status: planned\n- depends: TASK-104\n');
+  ensureEscalation(root, 'TASK-104', { type: 'environment', question: 'Can the staging App ID be created?' });
+  assert.equal(listEscalations([root]).length, 1);
+  setStatus(root, 'TASK-104', 'done'); // done some other way than this sync (a merge seen earlier, by hand)
+  assert.deepEqual(listEscalations([root]).map((e) => e.task), [], 'a done task blocks nothing');
+  const { syncRepo } = await import('../lib/sync.mjs');
+  syncRepo(root, { gh: () => new Set(), feedback: () => ({ rework: [], parked: [] }) });
+  assert.equal(existsSync(escalationPath(root, 'TASK-104')), false, 'archived');
+  assert.equal(existsSync(`${escalationPath(root, 'TASK-104')}.done`), true, 'kept as history');
+});
+
+// ISSUE-RR-007: seen live, TASK-103's Builder stopped human_needed with its blockers as bullets
+// under "Not done"; the inbox entry was generic and had no options to resolve with.
+test('a stop without a structured escalation still names the blockers and offers options', async () => {
+  const root = repo('app', '## TASK-103 — a\n- status: planned\n- depends:\n');
+  const said = 'I pinned the production ref, but TASK-103 is still not ready for review. I set its status to `human_needed`.\n\n**Gates**\n- `flutter test`: all 362 tests pass.\n\n**Not done**\n- **AC4:** no real `production.json` exists locally, so production validation has not run.\n- **AC5:** no staging build has been uploaded to testers.\n\nNext: provide production.json.';
+  const dispatchFake = async ({ task }) => { setStatus(root, task, 'human_needed'); return { status: 'ok', runs: [{ profile: 'p', result: { summary: said } }] }; };
+  const r = await runNext({ root, task: 'TASK-103', dispatch: dispatchFake, integrate: () => ({ status: 'skipped' }), policy: { notify: false } });
+  assert.equal(r.stop, 'human_needed');
+  const esc = parseEscalation(readFileSync(escalationPath(root, 'TASK-103'), 'utf8'));
+  assert.match(esc.question, /AC4: no real production\.json[\s\S]*AC5: no staging build/);
+  assert.ok(esc.options.length >= 2, `options: ${JSON.stringify(esc.options)}`);
+  assert.equal(recordDecision(root, 'TASK-103', { option: 1 }).optionText, esc.options[0]);
+});
+
+test('an older stand-in with no options is rewritten from the agent\'s words when the inbox opens', () => {
+  const root = repo('app', '## TASK-103 — a\n- status: human_needed\n- depends:\n');
+  mkdirSync(path.dirname(escalationPath(root, 'TASK-103')), { recursive: true });
+  writeFileSync(escalationPath(root, 'TASK-103'), "### Escalation\n- type: design\n- question: TASK-103 Builder stopped with human_needed; reasons are in the task's spec/Notes and its last run record\n- options:\n\n- recommendation:\n- affects:\n\n(Written by role-router from the stop; the agent did not raise a structured escalation.)\n\n#### Last words of the agent\nStill not ready.\n\n**Not done**\n- **AC5:** no staging build has been uploaded to testers.\n");
+  backfill([root]);
+  const esc = parseEscalation(readFileSync(escalationPath(root, 'TASK-103'), 'utf8'));
+  assert.equal(esc.question, 'TASK-103 is blocked on: AC5: no staging build has been uploaded to testers');
+  assert.equal(esc.options.length, 3);
+  assert.match(readFileSync(escalationPath(root, 'TASK-103'), 'utf8'), /Last words of the agent\nStill not ready/);
+});
+
+// ISSUE-RR-001: seen live, resolve recorded the decision and logged it, then the Architect exited
+// before applying it; the escalation vanished from the inbox and a retry would log it twice.
+test('a decision the Architect could not apply stays in the inbox, and the retry reuses it', async () => {
+  const { createProject } = await import('../lib/projects.mjs');
+  const { decisionEntries } = await import('../lib/scope.mjs');
+  const root = repo('App', '## TASK-101 — a\n- status: human_needed\n- depends:\n');
+  mkdirSync(path.dirname(escalationPath(root, 'TASK-101')), { recursive: true });
+  writeFileSync(escalationPath(root, 'TASK-101'), BLOCK);
+  createProject('rr001', [root]);
+  const cfg = path.join(root, '..', 'config.json');
+  writeFileSync(cfg, JSON.stringify({ version: 2, accounts: { O: { agent: 'codex' } }, profiles: { 'o-top': { account: 'O', model: 'm', tier: 'top' } }, roles: { architect: { chain: ['o-top'], onTierDrop: 'auto' } } }));
+  const env = { ...process.env, ROLE_ROUTER_CONFIG: cfg, PATH: path.dirname(process.execPath) + ':/usr/bin:/bin' }; // no codex on PATH
+  const first = spawnSync(CLI, ['resolve', 'App:TASK-101', '--option', '1'], { cwd: root, encoding: 'utf8', env });
+  assert.equal(first.status, 1);
+  assert.match(first.stderr, /recorded but not applied/);
+  assert.match(first.stderr, /role-router resolve App:TASK-101/);
+  const pending = listEscalations([root]);
+  assert.equal(pending.length, 1, 'still in the inbox');
+  assert.match(pending[0].pending?.optionText ?? '', /Order-keyed topic/);
+  const logged = decisionEntries('rr001').length;
+  const retry = spawnSync(CLI, ['resolve', 'App:TASK-101'], { cwd: root, encoding: 'utf8', env });
+  assert.match(retry.stdout, /Retrying the recorded decision for App:TASK-101: Order-keyed topic/);
+  assert.equal(decisionEntries('rr001').length, logged, 'the retry does not log the decision again');
+});

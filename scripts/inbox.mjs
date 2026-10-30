@@ -7,14 +7,15 @@
 //   design       a headless Architect applies it to the affected specs (also in other repos),
 //                then the task is relaunched
 //   others       the task goes back to the Builder with your decision, and is relaunched
-// --no-run only records the decision.
+// --no-run only records the decision. When applying it fails, the decision stays in the inbox as
+// decided-not-applied; `resolve <task>` with no option retries it without recording it again.
 
 import { spawn } from 'node:child_process';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { loadBoard, setStatus } from '../lib/board.mjs';
 import { dispatch } from '../lib/dispatch.mjs';
-import { backfill, decisionPrompt, escalationPath, listEscalations, recordDecision } from '../lib/escalations.mjs';
+import { backfill, decisionPrompt, escalationPath, listEscalations, markApplied, markUnapplied, recordDecision } from '../lib/escalations.mjs';
 import { gitRoot, knownRepos, registerRepo, resolveRepo } from '../lib/repos.mjs';
 import { appendDecision, projectsFor, scopeRepos } from '../lib/scope.mjs';
 import { renderNext, suggestions } from '../lib/nextsteps.mjs';
@@ -31,6 +32,11 @@ function show(list) {
   if (!list.length) { console.log('Inbox empty: nothing is waiting on you.'); return; }
   list.forEach((e, i) => {
     console.log(`${String(i + 1).padStart(2)}  ${e.repo}:${e.task}  [${e.type}]  ${e.question}`);
+    if (e.pending) {
+      console.log(`      decided, not applied yet: ${e.pending.optionText ?? e.pending.note} (${e.pending.unapplied})`);
+      console.log(dim(`      retry: role-router resolve ${e.repo}:${e.task}   (or decide again with --option/--note)`));
+      return;
+    }
     e.options.forEach((o, k) => console.log(`      ${k + 1}. ${o}`));
     if (e.recommendation) console.log(`      recommends: ${e.recommendation}`);
     if (e.blocks.length) console.log(dim(`      blocks: ${e.blocks.join(', ')}`));
@@ -66,11 +72,16 @@ try {
 
   const e = target(rest.find((a) => !a.startsWith('--') && rest[rest.indexOf(a) - 1] !== '--option' && rest[rest.indexOf(a) - 1] !== '--note'), list);
   const option = opt('option') !== undefined ? Number(opt('option')) : undefined;
-  const decision = recordDecision(e.repoRoot, e.task, { option, note: opt('note') });
-  console.log(`Decision recorded for ${e.repo}:${e.task}: ${decision.optionText ?? decision.note}`);
-  for (const p of projectsFor(e.repoRoot)) {
-    appendDecision(p.name, { decision: `${e.repo}:${e.task}: ${e.question} → ${decision.optionText ?? decision.note}`, affects: [`${e.repo}:${e.task}`, ...e.affects], source: 'resolve' });
-    console.log(`Added to the ${p.name} decision log.`);
+  const retry = e.pending && option === undefined && !opt('note');
+  const decision = retry ? e.pending : recordDecision(e.repoRoot, e.task, { option, note: opt('note') });
+  if (retry) {
+    console.log(`Retrying the recorded decision for ${e.repo}:${e.task}: ${decision.optionText ?? decision.note}`);
+  } else {
+    console.log(`Decision recorded for ${e.repo}:${e.task}: ${decision.optionText ?? decision.note}`);
+    for (const p of projectsFor(e.repoRoot)) {
+      appendDecision(p.name, { decision: `${e.repo}:${e.task}: ${e.question} → ${decision.optionText ?? decision.note}`, affects: [`${e.repo}:${e.task}`, ...e.affects], source: 'resolve' });
+      console.log(`Added to the ${p.name} decision log.`);
+    }
   }
   if (rest.includes('--no-run')) process.exit(0);
 
@@ -88,9 +99,15 @@ try {
     const repos = [...new Set(names.map((n) => (existsSync(n) ? path.resolve(n) : resolveRepo(n, e.repoRoot))).filter(Boolean))].filter((r) => r !== e.repoRoot);
     const message = `${e.task}\n\n${decisionPrompt(e.repoRoot, e.task)}\n\nEscalation file: ${escalationPath(e.repoRoot, e.task)}\nAffected tasks: ${e.affects.join(', ') || '(none listed)'}\nRepos: ${[e.repoRoot, ...repos].join(', ')}`;
     console.log('Architect is applying the decision to the affected specs (headless)…');
-    const out = await dispatch({ role: 'replan', task: e.task, message, mode: 'headless', cwd: e.repoRoot, addDirs: repos });
-    if (out.status !== 'ok') throw new Error(`the Architect could not apply it: ${out.message ?? out.status}`);
+    let out;
+    try { out = await dispatch({ role: 'replan', task: e.task, message, mode: 'headless', cwd: e.repoRoot, addDirs: repos }); } catch (err) { out = { status: 'crashed', message: err.message }; }
+    if (out.status !== 'ok') {
+      const why = `${out.message ?? out.status}`.split('\n')[0];
+      markUnapplied(e.repoRoot, e.task, why);
+      throw new Error(`decision recorded but not applied: the Architect failed (${why}). The specs are unchanged and nothing was relaunched; it stays in the inbox. Retry (no new log entry): role-router resolve ${e.repo}:${e.task}`);
+    }
   }
+  markApplied(e.repoRoot, e.task);
   // Resume at the stage that stopped (the replan may have moved the status: it wins unless it left human_needed).
   const now = loadBoard(e.repoRoot)?.byId.get(e.task)?.status;
   const status = e.type === 'design' && now !== 'human_needed' ? now : resumeAt;

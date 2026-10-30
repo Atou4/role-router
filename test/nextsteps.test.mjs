@@ -112,3 +112,14 @@ test('without GitHub, a passed task is merged locally; on GitHub, a failed looku
   assert.match(failed.title, /GitHub could not be asked/);
   assert.deepEqual(failed.argv, []);
 });
+
+test('a decision the Architect failed to apply is offered as a retry, not a new decision', async () => {
+  const { markUnapplied, recordDecision } = await import('../lib/escalations.mjs');
+  const root = repo('Solo', '## TASK-101 — a\n- status: human_needed\n- depends:\n', mkdtempSync(path.join(os.tmpdir(), 'rr-next-')));
+  ensureEscalation(root, 'TASK-101', { type: 'design', question: 'Which topic?', detail: '1. Order topic\n2. Delivery topic' });
+  recordDecision(root, 'TASK-101', { option: 1 });
+  markUnapplied(root, 'TASK-101', 'codex exited 1 without completing a turn');
+  const step = suggestions([{ root }], { prs: () => null }).steps.find((s) => s.kind === 'decide');
+  assert.deepEqual(step.argv, ['resolve', 'Solo:TASK-101']);
+  assert.match(step.title, /Apply the decision for Solo:TASK-101 again/);
+});
